@@ -10,3 +10,6 @@ __pycache__/
 # Файли IDE
 .vscode/
 .idea/
+
+# БД
+*.sqlite3
