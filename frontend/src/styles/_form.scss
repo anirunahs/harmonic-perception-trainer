@@ -1,0 +1,39 @@
+@use "sass:color";
+@use "./variables";
+
+.form-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 50px auto;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: variables.$shadow;
+  max-width: variables.$form-width;
+}
+
+.form-input {
+  width: 90%;
+  padding: variables.$input-padding;
+  margin: 10px 0;
+  border: 1px solid variables.$border-color;
+  border-radius: variables.$radius;
+  box-sizing: border-box;
+}
+
+.form-button {
+  width: 95%;
+  padding: variables.$input-padding;
+  margin: 20px 0;
+  background-color: variables.$primary-color;
+  color: variables.$text-color;
+  border: none;
+  border-radius: variables.$radius;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+
+  &:hover {
+    background-color: color.adjust(variables.$primary-color, $lightness: -5%);
+  }
+}
