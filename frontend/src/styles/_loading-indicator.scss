@@ -1,0 +1,25 @@
+@use "./variables";
+
+.loader-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.loader {
+  border: variables.$spinner-border-width solid variables.$spinner-bg;
+  border-top: variables.$spinner-border-width solid variables.$primary-color;
+  border-radius: 50%;
+  width: variables.$spinner-size;
+  height: variables.$spinner-size;
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
