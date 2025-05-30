@@ -1,0 +1,68 @@
+@use "./variables";
+
+.audio-recognizer-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+  gap: 1.5rem;
+  color: variables.$text-color;
+
+  h2 {
+    font-size: 1.8rem;
+  }
+
+  .audio-timer {
+    font-size: 2.2rem;
+    font-weight: bold;
+    background: variables.$primary-color;
+    padding: 0.6rem 1.2rem;
+    border-radius: variables.$radius;
+    box-shadow: variables.$shadow;
+  }
+
+  .btn--record-toggle {
+    padding: 1rem 2rem;
+    border: none;
+    font-size: 1.2rem;
+    border-radius: variables.$radius;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.1s;
+
+    &.idle {
+      background-color: variables.$primary-color;
+      color: variables.$text-color;
+
+      &:hover {
+        background-color: #3a3770;
+      }
+    }
+
+    &.recording {
+      background-color: variables.$recording-color;
+      color: variables.$text-color;
+
+      &:hover {
+        background-color: #2d6c55;
+      }
+    }
+
+    &:active {
+      transform: scale(0.98);
+    }
+  }
+
+  .btn--playback {
+    padding: 0.7rem 1.5rem;
+    font-size: 1rem;
+    border: 1px solid variables.$border-color;
+    border-radius: variables.$radius;
+    background: variables.$spinner-bg;
+    color: #555;
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+}
