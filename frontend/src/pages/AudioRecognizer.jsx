@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import Header from "../components/Header";
 
 const AudioRecognizer = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -40,22 +41,26 @@ const AudioRecognizer = () => {
   }, []);
 
   return (
-    <div className="audio-recognizer-page">
-      <h2>Розпізнавання інтервалу</h2>
+    <>
+      <Header />
+      <div className="audio-recognizer-page">
+        
+        <h2>Розпізнавання інтервалу</h2>
 
-      <div className="audio-timer">{formatTime(seconds)}</div>
+        <div className="audio-timer">{formatTime(seconds)}</div>
 
-      <button
-        className={`btn--record-toggle ${isRecording ? "recording" : "idle"}`}
-        onClick={handleToggleRecording}
-      >
-        {isRecording ? "Зупинити запис" : "Почати запис"}
-      </button>
+        <button
+          className={`btn--record-toggle ${isRecording ? "recording" : "idle"}`}
+          onClick={handleToggleRecording}
+        >
+          {isRecording ? "Зупинити запис" : "Почати запис"}
+        </button>
 
-      <button className="btn--playback" disabled>
-        Відтворити запис
-      </button>
-    </div>
+        <button className="btn--playback" disabled>
+          Відтворити запис
+        </button>
+      </div>
+    </>
   );
 };
 
