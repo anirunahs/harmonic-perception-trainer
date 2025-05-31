@@ -6,7 +6,7 @@
   align-items: center;
   padding: 2rem;
   gap: 1.5rem;
-  color: variables.$text-color;
+  color: variables.$text-color-dark;
 
   h2 {
     font-size: 1.8rem;
@@ -31,7 +31,7 @@
 
     &.idle {
       background-color: variables.$primary-color;
-      color: variables.$text-color;
+      color: variables.$text-color-light;
 
       &:hover {
         background-color: #3a3770;
@@ -40,7 +40,7 @@
 
     &.recording {
       background-color: variables.$recording-color;
-      color: variables.$text-color;
+      color: variables.$text-color-light;
 
       &:hover {
         background-color: #2d6c55;
