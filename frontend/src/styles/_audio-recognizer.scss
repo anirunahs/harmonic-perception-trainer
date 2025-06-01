@@ -255,3 +255,79 @@
     }
   }
 }
+
+// Панель стану
+.status-card {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-4;
+  padding: $space-6;
+  border-radius: $radius-lg;
+  border: 1px solid $border-color;
+  background: $white;
+  box-shadow: $shadow;
+  max-width: 600px;
+  animation: fadeIn $transition-normal;
+
+  &__icon {
+    flex-shrink: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: $radius-lg;
+
+    svg {
+      width: 1.5rem;
+      height: 1.5rem;
+    }
+  }
+
+  &__content {
+    flex: 1;
+  }
+
+  &__title {
+    font-size: $font-size-lg;
+    font-weight: 600;
+    color: $text-primary;
+    margin-bottom: $space-2;
+  }
+
+  &__description {
+    font-size: $font-size-sm;
+    color: $text-secondary;
+    line-height: 1.5;
+  }
+
+  &--success {
+    border-color: rgba($success-color, 0.3);
+    background: linear-gradient(135deg, $white, rgba($success-color, 0.02));
+
+    .status-card__icon {
+      background: rgba($success-color, 0.1);
+      color: $success-color;
+    }
+  }
+
+  &--error {
+    border-color: rgba($error-color, 0.3);
+    background: linear-gradient(135deg, $white, rgba($error-color, 0.02));
+
+    .status-card__icon {
+      background: rgba($error-color, 0.1);
+      color: $error-color;
+    }
+  }
+
+  &--warning {
+    border-color: rgba($warning-color, 0.3);
+    background: linear-gradient(135deg, $white, rgba($warning-color, 0.02));
+
+    .status-card__icon {
+      background: rgba($warning-color, 0.1);
+      color: $warning-color;
+    }
+  }
+}
