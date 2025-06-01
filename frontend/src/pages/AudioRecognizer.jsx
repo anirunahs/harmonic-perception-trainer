@@ -135,95 +135,95 @@ const AudioRecognizer = () => {
     <>
       <Header />
       <div className="audio-recognizer">
-      <div className="audio-recognizer__container">
-        <div className="audio-recognizer__header">
-          <h1 className="audio-recognizer__title">Розпізнавання музичних інтервалів</h1>
-          <p className="audio-recognizer__subtitle">
-            Запишіть звук та отримайте аналіз музичного інтервалу
-          </p>
-        </div>
+        <div className="audio-recognizer__container">
+          <div className="audio-recognizer__header">
+            <h1 className="audio-recognizer__title">Розпізнавання музичних інтервалів</h1>
+            <p className="audio-recognizer__subtitle">
+              Запишіть звук та отримайте аналіз музичного інтервалу
+            </p>
+          </div>
 
-        <div className="audio-recognizer__content">
-          <div className="audio-recognizer__recorder">
-            <div className="audio-recognizer__timer">
-              <div className="timer-display">
-                <span className="timer-display__time">{formatTime(seconds)}</span>
-                {isRecording && (
-                  <div className="timer-display__indicator">
-                    <div className="recording-pulse"></div>
+          <div className="audio-recognizer__content">
+            <div className="audio-recognizer__recorder">
+              <div className="audio-recognizer__timer">
+                <div className="timer-display">
+                  <span className="timer-display__time">{formatTime(seconds)}</span>
+                  {isRecording && (
+                    <div className="timer-display__indicator">
+                      <div className="recording-pulse"></div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="audio-recognizer__controls">
+                <button
+                  className={getRecordingButtonClass()}
+                  onClick={toggleRecording}
+                  aria-label={isRecording ? "Зупинити запис" : "Почати запис"}
+                >
+                  <div className="record-btn__icon">
+                    {isRecording ? <Square /> : <Mic />}
+                  </div>
+                  <span className="record-btn__text">
+                    {isRecording ? "Зупинити запис" : hasRecording ? "Новий запис" : "Почати запис"}
+                  </span>
+                </button>
+
+                {hasRecording && (
+                  <div className="audio-recognizer__actions">
+                    <button
+                      className="action-btn action-btn--secondary"
+                      onClick={playRecording}
+                      disabled={isPlaying}
+                      aria-label="Відтворити запис"
+                    >
+                      <Play />
+                      <span>{isPlaying ? "Відтворюється..." : "Прослухати"}</span>
+                    </button>
+
+                    <button
+                      className="action-btn action-btn--primary"
+                      onClick={analyzeAudio}
+                      aria-label="Аналізувати запис"
+                    >
+                      <Volume2 />
+                      <span>Аналізувати</span>
+                    </button>
+
+                    <button
+                      className="action-btn action-btn--ghost"
+                      onClick={resetRecording}
+                      aria-label="Скинути запис"
+                    >
+                      <RotateCcw />
+                      <span>Скинути</span>
+                    </button>
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="audio-recognizer__controls">
-              <button
-                className={getRecordingButtonClass()}
-                onClick={toggleRecording}
-                aria-label={isRecording ? "Зупинити запис" : "Почати запис"}
-              >
-                <div className="record-btn__icon">
-                  {isRecording ? <Square /> : <Mic />}
-                </div>
-                <span className="record-btn__text">
-                  {isRecording ? "Зупинити запис" : hasRecording ? "Новий запис" : "Почати запис"}
-                </span>
-              </button>
-
-              {hasRecording && (
-                <div className="audio-recognizer__actions">
-                  <button
-                    className="action-btn action-btn--secondary"
-                    onClick={playRecording}
-                    disabled={isPlaying}
-                    aria-label="Відтворити запис"
-                  >
-                    <Play />
-                    <span>{isPlaying ? "Відтворюється..." : "Прослухати"}</span>
-                  </button>
-
-                  <button
-                    className="action-btn action-btn--primary"
-                    onClick={analyzeAudio}
-                    aria-label="Аналізувати запис"
-                  >
+            {recordingStatus === 'completed' && (
+              <div className="audio-recognizer__status">
+                <div className="status-card status-card--success">
+                  <div className="status-card__icon">
                     <Volume2 />
-                    <span>Аналізувати</span>
-                  </button>
-
-                  <button
-                    className="action-btn action-btn--ghost"
-                    onClick={resetRecording}
-                    aria-label="Скинути запис"
-                  >
-                    <RotateCcw />
-                    <span>Скинути</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {recordingStatus === 'completed' && (
-            <div className="audio-recognizer__status">
-              <div className="status-card status-card--success">
-                <div className="status-card__icon">
-                  <Volume2 />
-                </div>
-                <div className="status-card__content">
-                  <h3 className="status-card__title">Запис завершено</h3>
-                  <p className="status-card__description">
-                    Тривалість: {formatTime(seconds)}. Натисніть "Аналізувати" для розпізнавання інтервалу.
-                  </p>
+                  </div>
+                  <div className="status-card__content">
+                    <h3 className="status-card__title">Запис завершено</h3>
+                    <p className="status-card__description">
+                      Тривалість: {formatTime(seconds)}. Натисніть "Аналізувати" для розпізнавання інтервалу.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        <audio ref={audioRef} style={{ display: 'none' }} />
+          <audio ref={audioRef} style={{ display: 'none' }} />
+        </div>
       </div>
-    </div>
     </>
   );
 };
