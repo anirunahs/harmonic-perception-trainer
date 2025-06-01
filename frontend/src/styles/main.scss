@@ -1,3 +1,6 @@
 @use "./variables";
+@use "./global.scss";
+@use "./header";
 @use "./form";
 @use "./loading-indicator";
+@use "./audio-recognizer";
