@@ -6,30 +6,34 @@ const AudioRecognizer = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [hasRecording, setHasRecording] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [audioBlob, setAudioBlob] = useState(null);
   const [recordingStatus, setRecordingStatus] = useState('idle');
 
   const timerRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+  const audioRef = useRef(null);
 
-  const formatTime = (s) => {
+  const formatTime = useCallback((s) => {
     const min = String(Math.floor(s / 60)).padStart(2, "0");
     const sec = String(s % 60).padStart(2, "0");
     return `${min}:${sec}`;
-  };
+  }, []);
 
-  const startTimer = () => {
+  const startTimer = useCallback(() => {
     if (timerRef.current) return;
     timerRef.current = setInterval(() => {
       setSeconds((prev) => prev + 1);
     }, 1000);
-  };
+  }, []);
 
-  const stopTimer = () => {
-    clearInterval(timerRef.current);
-    timerRef.current = null;
-  };
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
 
   const resetRecording = useCallback(() => {
     setSeconds(0);
@@ -90,19 +94,33 @@ const AudioRecognizer = () => {
     }
   }, [isRecording, hasRecording, stopRecording, startRecording, resetRecording]);
 
-  const handleToggleRecording = () => {
-    if (isRecording) {
-      stopTimer();
-    } else {
-      setSeconds(0);
-      startTimer();
+  const playRecording = useCallback(() => {
+    if (audioBlob && audioRef.current) {
+      const audioUrl = URL.createObjectURL(audioBlob);
+      audioRef.current.src = audioUrl;
+      audioRef.current.play();
+      setIsPlaying(true);
+
+      audioRef.current.onended = () => {
+        setIsPlaying(false);
+        URL.revokeObjectURL(audioUrl);
+      };
     }
-    setIsRecording((prev) => !prev);
-  };
+  }, [audioBlob]);
+
+  const analyzeAudio = useCallback(() => {
+    if (!audioBlob) return;
+    
+    // TODO: Аудіоаналіз
+    alert('Функція аналізу аудіо!');
+  }, [audioBlob]);
 
   useEffect(() => {
     return () => {
       stopTimer();
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.stop();
+      }
     };
   }, []);
 
@@ -130,6 +148,11 @@ const AudioRecognizer = () => {
             <div className="audio-recognizer__timer">
               <div className="timer-display">
                 <span className="timer-display__time">{formatTime(seconds)}</span>
+                {isRecording && (
+                  <div className="timer-display__indicator">
+                    <div className="recording-pulse"></div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -147,24 +170,42 @@ const AudioRecognizer = () => {
                 </span>
               </button>
 
-              <div className="audio-recognizer__actions">
-                <button className="action-btn action-btn--secondary" disabled>
-                   <Play />
-                   <span>Прослухати</span>
-                 </button>
-                 <button className="action-btn action-btn--primary" disabled>
-                   <Volume2 />
-                   <span>Аналізувати</span>
-                 </button>
-                 <button className="action-btn action-btn--ghost" disabled>
-                   <RotateCcw />
-                   <span>Скинути</span>
-                 </button>
-              </div>
+              {hasRecording && (
+                <div className="audio-recognizer__actions">
+                  <button
+                    className="action-btn action-btn--secondary"
+                    onClick={playRecording}
+                    disabled={isPlaying}
+                    aria-label="Відтворити запис"
+                  >
+                    <Play />
+                    <span>{isPlaying ? "Відтворюється..." : "Прослухати"}</span>
+                  </button>
+
+                  <button
+                    className="action-btn action-btn--primary"
+                    onClick={analyzeAudio}
+                    aria-label="Аналізувати запис"
+                  >
+                    <Volume2 />
+                    <span>Аналізувати</span>
+                  </button>
+
+                  <button
+                    className="action-btn action-btn--ghost"
+                    onClick={resetRecording}
+                    aria-label="Скинути запис"
+                  >
+                    <RotateCcw />
+                    <span>Скинути</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
-        <audio style={{ display: "none" }} />
+
+        <audio ref={audioRef} style={{ display: 'none' }} />
       </div>
     </div>
 
