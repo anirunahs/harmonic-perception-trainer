@@ -210,6 +210,16 @@
     background: $primary-color;
     color: $white;
     box-shadow: $shadow;
+
+    &:hover {
+      background: $primary-hover;
+      transform: translateY(-1px);
+      box-shadow: $shadow-md;
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
   }
 
   &--secondary {
@@ -217,11 +227,31 @@
     color: $text-primary;
     border-color: $border-color;
     box-shadow: $shadow-sm;
+
+    &:hover {
+      background: $gray-50;
+      border-color: $gray-300;
+      transform: translateY(-1px);
+      box-shadow: $shadow;
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
   }
 
   &--ghost {
     background: transparent;
     color: $text-secondary;
     border-color: transparent;
+
+    &:hover {
+      background: $gray-100;
+      color: $text-primary;
+    }
+
+    &:active {
+      background: $gray-200;
+    }
   }
 }
