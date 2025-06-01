@@ -122,7 +122,7 @@ const AudioRecognizer = () => {
         mediaRecorderRef.current.stop();
       }
     };
-  }, []);
+  }, [stopTimer]);
 
   const getRecordingButtonClass = () => {
     const baseClass = "record-btn";
@@ -203,28 +203,27 @@ const AudioRecognizer = () => {
               )}
             </div>
           </div>
+
+          {recordingStatus === 'completed' && (
+            <div className="audio-recognizer__status">
+              <div className="status-card status-card--success">
+                <div className="status-card__icon">
+                  <Volume2 />
+                </div>
+                <div className="status-card__content">
+                  <h3 className="status-card__title">Запис завершено</h3>
+                  <p className="status-card__description">
+                    Тривалість: {formatTime(seconds)}. Натисніть "Аналізувати" для розпізнавання інтервалу.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <audio ref={audioRef} style={{ display: 'none' }} />
       </div>
     </div>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-      
     </>
   );
 };
