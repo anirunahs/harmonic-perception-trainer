@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
+import { Mic, MicOff, Play, Square, RotateCcw, Volume2 } from "lucide-react";
 import Header from "../components/Header";
 
 const AudioRecognizer = () => {
@@ -43,23 +44,70 @@ const AudioRecognizer = () => {
   return (
     <>
       <Header />
-      <div className="audio-recognizer-page">
-        
-        <h2>Розпізнавання інтервалу</h2>
+      <div className="audio-recognizer">
+      <div className="audio-recognizer__container">
+        <div className="audio-recognizer__header">
+          <h1 className="audio-recognizer__title">Розпізнавання музичних інтервалів</h1>
+          <p className="audio-recognizer__subtitle">
+            Запишіть звук та отримайте аналіз музичного інтервалу
+          </p>
+        </div>
 
-        <div className="audio-timer">{formatTime(seconds)}</div>
+        <div className="audio-recognizer__content">
+          <div className="audio-recognizer__recorder">
+            <div className="audio-recognizer__timer">
+              <div className="timer-display">
+                <span className="timer-display__time">{formatTime(seconds)}</span>
+              </div>
+            </div>
 
-        <button
-          className={`btn--record-toggle ${isRecording ? "recording" : "idle"}`}
-          onClick={handleToggleRecording}
-        >
-          {isRecording ? "Зупинити запис" : "Почати запис"}
-        </button>
+            <div className="audio-recognizer__controls">
+              <button className="record-btn">
+                <div className="record-btn__icon">
+                  <Mic />
+                </div>
+                <span className="record-btn__text">
+                  Почати запис
+                </span>
+              </button>
 
-        <button className="btn--playback" disabled>
-          Відтворити запис
-        </button>
+              <div className="audio-recognizer__actions">
+                <button className="action-btn action-btn--secondary" disabled>
+                   <Play />
+                   <span>Прослухати</span>
+                 </button>
+                 <button className="action-btn action-btn--primary" disabled>
+                   <Volume2 />
+                   <span>Аналізувати</span>
+                 </button>
+                 <button className="action-btn action-btn--ghost" disabled>
+                   <RotateCcw />
+                   <span>Скинути</span>
+                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <audio style={{ display: "none" }} />
       </div>
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      
     </>
   );
 };

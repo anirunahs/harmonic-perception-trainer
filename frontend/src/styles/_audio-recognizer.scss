@@ -1,68 +1,199 @@
-@use "./variables";
+@use "./variables" as *;
 
-.audio-recognizer-page {
+.audio-recognizer {
+  min-height: calc(100vh - 4rem);
+  background: linear-gradient(135deg, $bg-secondary 0%, rgba($primary-color, 0.05) 100%);
+
+  &__container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: $space-8 $space-4;
+  }
+
+  &__header {
+    text-align: center;
+    margin-bottom: $space-12;
+  }
+
+  &__title {
+    font-size: $font-size-3xl;
+    font-weight: 700;
+    color: $text-primary;
+    margin-bottom: $space-4;
+    line-height: 1.2;
+  }
+
+  &__subtitle {
+    font-size: $font-size-lg;
+    color: $text-secondary;
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  &__content {
+    display: flex;
+    flex-direction: column;
+    gap: $space-8;
+  }
+
+  &__recorder {
+    background: $white;
+    border-radius: $radius-xl;
+    padding: $space-8;
+    box-shadow: $shadow-lg;
+    border: 1px solid $border-color-light;
+  }
+
+  &__timer {
+    display: flex;
+    justify-content: center;
+    margin-bottom: $space-8;
+  }
+
+  &__controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $space-6;
+  }
+
+  &__actions {
+    display: flex;
+    gap: $space-4;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  &__status {
+    display: flex;
+    justify-content: center;
+  }
+}
+
+// Таймер
+.timer-display {
+  display: flex;
+  align-items: center;
+  gap: $space-4;
+  padding: $space-4 $space-6;
+  background: linear-gradient(135deg, $primary-color, $primary-light);
+  border-radius: $radius-xl;
+  box-shadow: $shadow-md;
+
+  &__time {
+    font-size: $font-size-4xl;
+    font-weight: 700;
+    color: $white;
+    font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+    letter-spacing: 0.1em;
+  }
+
+  &__indicator {
+    display: flex;
+    align-items: center;
+  }
+}
+
+// Кнопка запису
+.record-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 2rem;
-  gap: 1.5rem;
-  color: variables.$text-color-dark;
+  justify-content: center;
+  gap: $space-3;
+  width: 200px;
+  height: 200px;
+  border: none;
+  border-radius: $radius-full;
+  background: linear-gradient(135deg, $primary-color, $primary-light);
+  color: $white;
+  cursor: pointer;
+  transition: all $transition-normal;
+  box-shadow: $shadow-lg;
+  position: relative;
+  overflow: hidden;
 
-  h2 {
-    font-size: 1.8rem;
-  }
+  &__icon {
+    width: 3rem;
+    height: 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
-  .audio-timer {
-    font-size: 2.2rem;
-    font-weight: bold;
-    background: variables.$primary-color;
-    padding: 0.6rem 1.2rem;
-    border-radius: variables.$radius;
-    box-shadow: variables.$shadow;
-  }
-
-  .btn--record-toggle {
-    padding: 1rem 2rem;
-    border: none;
-    font-size: 1.2rem;
-    border-radius: variables.$radius;
-    cursor: pointer;
-    transition: background-color 0.3s, transform 0.1s;
-
-    &.idle {
-      background-color: variables.$primary-color;
-      color: variables.$text-color-light;
-
-      &:hover {
-        background-color: #3a3770;
-      }
-    }
-
-    &.recording {
-      background-color: variables.$recording-color;
-      color: variables.$text-color-light;
-
-      &:hover {
-        background-color: #2d6c55;
-      }
-    }
-
-    &:active {
-      transform: scale(0.98);
+    svg {
+      width: 100%;
+      height: 100%;
     }
   }
 
-  .btn--playback {
-    padding: 0.7rem 1.5rem;
-    font-size: 1rem;
-    border: 1px solid variables.$border-color;
-    border-radius: variables.$radius;
-    background: variables.$spinner-bg;
-    color: #555;
+  &__text {
+    font-size: $font-size-lg;
+    font-weight: 600;
+    text-align: center;
+  }
 
-    &:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
+  &--recording {
+    background: linear-gradient(135deg, $error-color, #dc2626);
+    animation: recordingPulse 2s ease-in-out infinite;
+
+    &:hover {
+      background: linear-gradient(135deg, #dc2626, #b91c1c);
     }
+  }
+
+  &--completed {
+    background: linear-gradient(135deg, $success-color, #059669);
+
+    &:hover {
+      background: linear-gradient(135deg, #059669, #047857);
+    }
+  }
+}
+
+//Кнопка дій
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-3 $space-5;
+  border: 1px solid transparent;
+  border-radius: $radius-lg;
+  font-size: $font-size-sm;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all $transition-fast;
+  min-width: 120px;
+  justify-content: center;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  svg {
+    width: 1.125rem;
+    height: 1.125rem;
+    flex-shrink: 0;
+  }
+
+  &--primary {
+    background: $primary-color;
+    color: $white;
+    box-shadow: $shadow;
+  }
+
+  &--secondary {
+    background: $white;
+    color: $text-primary;
+    border-color: $border-color;
+    box-shadow: $shadow-sm;
+  }
+
+  &--ghost {
+    background: transparent;
+    color: $text-secondary;
+    border-color: transparent;
   }
 }
