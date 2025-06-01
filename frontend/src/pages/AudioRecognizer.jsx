@@ -5,7 +5,13 @@ import Header from "../components/Header";
 const AudioRecognizer = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
+  const [hasRecording, setHasRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState(null);
+  const [recordingStatus, setRecordingStatus] = useState('idle');
+
   const timerRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
 
   const formatTime = (s) => {
     const min = String(Math.floor(s / 60)).padStart(2, "0");
@@ -25,6 +31,65 @@ const AudioRecognizer = () => {
     timerRef.current = null;
   };
 
+  const resetRecording = useCallback(() => {
+    setSeconds(0);
+    setHasRecording(false);
+    setAudioBlob(null);
+    setRecordingStatus('idle');
+    setIsPlaying(false);
+    audioChunksRef.current = [];
+  }, []);
+
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+        setAudioBlob(audioBlob);
+        setHasRecording(true);
+        setRecordingStatus('completed');
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingStatus('recording');
+      startTimer();
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+      alert('Помилка доступу до мікрофона. Перевірте дозволи.');
+    }
+  }, [startTimer]);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      stopTimer();
+    }
+  }, [isRecording, stopTimer]);
+
+  const toggleRecording = useCallback(() => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      if (hasRecording) {
+        resetRecording();
+      }
+      startRecording();
+    }
+  }, [isRecording, hasRecording, stopRecording, startRecording, resetRecording]);
+
   const handleToggleRecording = () => {
     if (isRecording) {
       stopTimer();
@@ -40,6 +105,13 @@ const AudioRecognizer = () => {
       stopTimer();
     };
   }, []);
+
+  const getRecordingButtonClass = () => {
+    const baseClass = "record-btn";
+    if (isRecording) return `${baseClass} ${baseClass}--recording`;
+    if (hasRecording) return `${baseClass} ${baseClass}--completed`;
+    return baseClass;
+  };
 
   return (
     <>
@@ -62,12 +134,16 @@ const AudioRecognizer = () => {
             </div>
 
             <div className="audio-recognizer__controls">
-              <button className="record-btn">
+              <button
+                className={getRecordingButtonClass()}
+                onClick={toggleRecording}
+                aria-label={isRecording ? "Зупинити запис" : "Почати запис"}
+              >
                 <div className="record-btn__icon">
-                  <Mic />
+                  {isRecording ? <Square /> : <Mic />}
                 </div>
                 <span className="record-btn__text">
-                  Почати запис
+                  {isRecording ? "Зупинити запис" : hasRecording ? "Новий запис" : "Почати запис"}
                 </span>
               </button>
 
