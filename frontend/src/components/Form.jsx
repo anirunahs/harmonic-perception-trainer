@@ -51,8 +51,8 @@ function Form({ route, method }) {
         setLoading(true);
 
         try {
-            const res = await api.post(route, { username, password })
-
+            const res = await api.post(route, { username, password });
+            
             if (isLogin) {
                 localStorage.setItem(ACCESS_TOKEN, res.data.access);
                 localStorage.setItem(REFRESH_TOKEN, res.data.refresh);
@@ -170,9 +170,7 @@ function Form({ route, method }) {
                                 type="submit"
                                 disabled
                             >
-                                <div className="btn-loading__spinner">
-                                    <div className="loader"></div>
-                                </div>
+                                <LoadingIndicator size="small" />
                             </button>
                         ) : (
                             <button 
@@ -197,4 +195,4 @@ function Form({ route, method }) {
     );
 }
 
-export default Form
+export default Form;
