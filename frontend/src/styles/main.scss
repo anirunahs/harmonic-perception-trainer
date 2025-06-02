@@ -4,3 +4,5 @@
 @use "./form";
 @use "./loading-indicator";
 @use "./audio-recognizer";
+
+.text-error { color: variables.$error-color; }
