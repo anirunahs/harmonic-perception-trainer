@@ -1,55 +1,208 @@
-@use "sass:color";
-@use "./variables";
+@use "./variables" as *;
 
 .form-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  margin: 50px auto;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: variables.$shadow;
-  max-width: variables.$form-width;
+  min-height: 100vh;
+  padding: $space-6;
+  background: linear-gradient(135deg, $bg-secondary 0%, rgba($primary-color, 0.05) 100%);
+}
+
+.form-card {
+  width: 100%;
+  max-width: $form-width;
+  background: $white;
+  border-radius: $radius-xl;
+  box-shadow: $shadow-lg;
+  border: 1px solid $border-color-light;
+  overflow: hidden;
+}
+
+.form-body {
+  padding: $space-6;
+}
+
+.form-group {
+  margin-bottom: $space-5;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.form-label {
+  display: block;
+  font-size: $font-size-xs;
+  font-weight: 500;
+  color: $text-primary;
+  margin-bottom: $space-2;
 }
 
 .form-input {
   width: 100%;
-  padding: variables.$input-padding;
-  margin: 10px 0;
-  border: 1px solid variables.$border-color;
-  border-radius: variables.$radius;
+  height: $input-height;
+  padding: $input-padding;
+  border: 1px solid $border-color;
+  border-radius: $radius-md;
+  font-size: $font-size-base;
+  color: $text-primary;
+  background-color: $white;
+  transition: all $transition-fast;
   box-sizing: border-box;
 
+  &::placeholder {
+    color: $text-light;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: $primary-color;
+    box-shadow: 0 0 0 3px rgba($primary-color, 0.1);
+  }
+
+  &:hover:not(:focus) {
+    border-color: $gray-300;
+  }
+
   &.error {
-    border-color: variables.$error-color;
+    border-color: $error-color;
+    
+    &:focus {
+      box-shadow: 0 0 0 3px rgba($error-color, 0.1);
+    }
+  }
+
+  &:disabled {
+    background-color: $gray-100;
+    color: $text-light;
+    cursor: not-allowed;
   }
 }
 
 .form-button {
-  width: 95%;
-  padding: variables.$input-padding;
-  margin: 20px 0;
-  background-color: variables.$primary-color;
-  color: variables.$text-color-light;
+  width: 100%;
+  height: $input-height;
+  padding: $input-padding;
   border: none;
-  border-radius: variables.$radius;
+  border-radius: $radius-md;
+  font-size: $font-size-base;
+  font-weight: 600;
+  color: $white;
+  background: linear-gradient(135deg, $primary-color, $primary-light);
   cursor: pointer;
-  transition: background-color 0.2s ease-in-out;
+  transition: all $transition-fast;
+  position: relative;
+  overflow: hidden;
 
-  &:hover {
-    background-color: color.adjust(variables.$primary-color, $lightness: -5%);
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba($white, 0.2), transparent);
+    opacity: 0;
+    transition: opacity $transition-fast;
+  }
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: $shadow-md;
+
+    &::before {
+      opacity: 1;
+    }
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+
+    &::before {
+      opacity: 0;
+    }
+  }
+
+  &--secondary {
+    background: $white;
+    color: $primary-color;
+    border: 1px solid $primary-color;
+
+    &:hover:not(:disabled) {
+      background: $primary-color;
+      color: $white;
+    }
+  }
+
+  &--ghost {
+    background: transparent;
+    color: $text-secondary;
+    border: 1px solid $border-color;
+
+    &:hover:not(:disabled) {
+      background: $gray-100;
+      color: $text-primary;
+      border-color: $gray-300;
+    }
+  }
+}
+
+.form-error {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  margin-top: $space-2;
+  font-size: $font-size-sm;
+  color: $error-color;
+
+  svg {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+  }
+}
+
+.form-help {
+  margin-top: $space-2;
+  font-size: $font-size-sm;
+  color: $text-secondary;
+}
+
+.form-divider {
+  display: flex;
+  align-items: center;
+  margin: $space-6 0;
+  
+  &::before,
+  &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: $border-color;
+  }
+  
+  span {
+    padding: 0 $space-4;
+    font-size: $font-size-sm;
+    color: $text-secondary;
+    background: $white;
   }
 }
 
 .form-error {
   margin: 0.5rem 0;
   font-size: 0.875rem;
-  color: variables.$error-color;
+  color: $error-color;
 }
 
 .form-help {
   font-size: 0.875rem;
-  color: variables.$text-secondary;
+  color: $text-secondary;
   margin-top: 4px;
 }
