@@ -1,39 +1,347 @@
-@use "sass:color";
-@use "./variables";
+@use "./variables" as *;
 
 .form-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  margin: 50px auto;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: variables.$shadow;
-  max-width: variables.$form-width;
+  min-height: 100vh;
+  padding: $space-6;
+  background: linear-gradient(135deg, $bg-secondary 0%, rgba($primary-color, 0.05) 100%);
+}
+
+.form-card {
+  width: 100%;
+  max-width: $form-width;
+  background: $white;
+  border-radius: $radius-xl;
+  box-shadow: $shadow-lg;
+  border: 1px solid $border-color-light;
+  overflow: hidden;
+}
+
+.form-header {
+  padding: $space-8 $space-6 $space-6;
+  text-align: center;
+  background: linear-gradient(135deg, $primary-color, $primary-light);
+  color: $white;
+
+  h1 {
+    font-size: $font-size-2xl;
+    font-weight: 700;
+    margin-bottom: $space-2;
+  }
+
+  p {
+    font-size: $font-size-sm;
+    opacity: 0.9;
+  }
+}
+
+.form-body {
+  padding: $space-6;
+}
+
+.form-group {
+  margin-bottom: $space-5;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.form-label {
+  display: block;
+  font-size: $font-size-sm;
+  font-weight: 500;
+  color: $text-primary;
+  margin-bottom: $space-2;
 }
 
 .form-input {
-  width: 90%;
-  padding: variables.$input-padding;
-  margin: 10px 0;
-  border: 1px solid variables.$border-color;
-  border-radius: variables.$radius;
+  width: 100%;
+  height: $input-height;
+  padding: $input-padding;
+  border: 1px solid $border-color;
+  border-radius: $radius-md;
+  font-size: $font-size-base;
+  color: $text-primary;
+  background-color: $white;
+  transition: all $transition-fast;
   box-sizing: border-box;
+
+  &::placeholder {
+    color: $text-light;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: $primary-color;
+    box-shadow: 0 0 0 3px rgba($primary-color, 0.1);
+  }
+
+  &:hover:not(:focus) {
+    border-color: $gray-300;
+  }
+
+  &.error {
+    border-color: $error-color;
+    
+    &:focus {
+      box-shadow: 0 0 0 3px rgba($error-color, 0.1);
+    }
+  }
+
+  &:disabled {
+    background-color: $gray-100;
+    color: $text-light;
+    cursor: not-allowed;
+  }
 }
 
 .form-button {
-  width: 95%;
-  padding: variables.$input-padding;
-  margin: 20px 0;
-  background-color: variables.$primary-color;
-  color: variables.$text-color-light;
+  width: 100%;
+  height: $input-height;
+  padding: $input-padding;
   border: none;
-  border-radius: variables.$radius;
+  border-radius: $radius-md;
+  font-size: $font-size-base;
+  font-weight: 600;
+  color: $white;
+  background: linear-gradient(135deg, $primary-color, $primary-light);
   cursor: pointer;
-  transition: background-color 0.2s ease-in-out;
+  transition: all $transition-fast;
+  position: relative;
+  overflow: hidden;
 
-  &:hover {
-    background-color: color.adjust(variables.$primary-color, $lightness: -5%);
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba($white, 0.2), transparent);
+    opacity: 0;
+    transition: opacity $transition-fast;
+  }
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: $shadow-md;
+
+    &::before {
+      opacity: 1;
+    }
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+
+    &::before {
+      opacity: 0;
+    }
+  }
+
+  &--secondary {
+    background: $white;
+    color: $primary-color;
+    border: 1px solid $primary-color;
+
+    &:hover:not(:disabled) {
+      background: $primary-color;
+      color: $white;
+    }
+  }
+
+  &--ghost {
+    background: transparent;
+    color: $text-secondary;
+    border: 1px solid $border-color;
+
+    &:hover:not(:disabled) {
+      background: $gray-100;
+      color: $text-primary;
+      border-color: $gray-300;
+    }
+  }
+}
+
+.form-error {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  margin-top: $space-2;
+  font-size: $font-size-sm;
+  color: $error-color;
+
+  svg {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+  }
+}
+
+.form-help {
+  margin-top: $space-2;
+  font-size: $font-size-sm;
+  color: $text-secondary;
+}
+
+.form-divider {
+  display: flex;
+  align-items: center;
+  margin: $space-6 0;
+  
+  &::before,
+  &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: $border-color;
+  }
+  
+  span {
+    padding: 0 $space-4;
+    font-size: $font-size-sm;
+    color: $text-secondary;
+    background: $white;
+  }
+}
+
+.form-footer {
+  padding: $space-4 $space-6 $space-6;
+  text-align: center;
+  border-top: 1px solid $border-color-light;
+  background: $gray-50;
+
+  p {
+    font-size: $font-size-sm;
+    color: $text-secondary;
+    margin-bottom: $space-3;
+  }
+
+  a {
+    color: $primary-color;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color $transition-fast;
+
+    &:hover {
+      color: $primary-hover;
+      text-decoration: underline;
+    }
+  }
+}
+
+// Стан завантаження
+.form-loading {
+  position: relative;
+  pointer-events: none;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba($white, 0.8);
+    border-radius: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+// Стан успішного виконання
+.form-success {
+  padding: $space-4;
+  background: rgba($success-color, 0.1);
+  border: 1px solid rgba($success-color, 0.3);
+  border-radius: $radius-md;
+  margin-bottom: $space-5;
+
+  .success-icon {
+    color: $success-color;
+    margin-right: $space-2;
+  }
+
+  .success-message {
+    color: $success-color;
+    font-size: $font-size-sm;
+    font-weight: 500;
+  }
+}
+
+// Адаптив
+@media (max-width: $breakpoint-sm) {
+  .form-container {
+    padding: $space-4;
+  }
+
+  .form-header {
+    padding: $space-6 $space-4 $space-4;
+
+    h1 {
+      font-size: $font-size-xl;
+    }
+  }
+
+  .form-body {
+    padding: $space-4;
+  }
+
+  .form-footer {
+    padding: $space-3 $space-4 $space-4;
+  }
+}
+
+// Скидання та перезаписання стилів
+.form-container .form-button {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem !important;
+  
+  > svg {
+    display: inline-block !important;
+    width: 1.125rem !important;
+    height: 1.125rem !important;
+    flex: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    vertical-align: middle !important;
+  }
+  
+  > span {
+    display: inline !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    flex: none !important;
+  }
+}
+
+.form-button,
+.form-input,
+.input-group__addon {
+  &.flex { display: flex !important; }
+  &.inline-flex { display: inline-flex !important; }
+  &.block { display: block !important; }
+  &.text-center { text-align: center !important; }
+  &.text-left { text-align: left !important; }
+  &.text-right { text-align: right !important; }
+}
+
+.form-button {
+  * {
+    box-sizing: border-box !important;
+  }
+  
+  svg {
+    display: inline-block !important;
+    vertical-align: middle !important;
   }
 }
