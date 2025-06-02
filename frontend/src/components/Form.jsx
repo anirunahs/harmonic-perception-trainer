@@ -1,6 +1,7 @@
 import { useState } from "react";
 import api from "../api";
 import { useNavigate } from "react-router-dom";
+import { User, Lock } from "lucide-react";
 import { ACCESS_TOKEN, REFRESH_TOKEN } from "../constants";
 import LoadingIndicator from "./LoadingIndicator";
 
@@ -46,7 +47,7 @@ function Form({ route, method }) {
         if (!validateForm()) {
             return;
         }
-        
+
         setLoading(true);
 
         try {
@@ -66,27 +67,68 @@ function Form({ route, method }) {
     };
 
     return (
-        <form onSubmit={handleSubmit} className="form-container">
-            <h1>{name}</h1>
-            <input
-                className="form-input"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Логін"
-            />
-            <input
-                className="form-input"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Пароль"
-            />
-            {loading && <LoadingIndicator />}
-            <button className="form-button" type="submit">
-                {name}
-            </button>
-        </form>
+        <div className="form-container">
+            <div className="form-card">
+                <form onSubmit={handleSubmit} className="form-body">
+                    <div className="form-group">
+                        <label htmlFor="username" className="form-label">
+                            Логін
+                        </label>
+                        <div className="input-group">
+                            <div className="input-group__addon">
+                                <User style={{width: '1.125rem', height: '1.125rem'}} />
+                            </div>
+                            <input
+                                id="username"
+                                className={`form-input ${error && !username ? 'error' : ''}`}
+                                type="text"
+                                value={username}
+                                onChange={(e) => {
+                                    setUsername(e.target.value);
+                                    if (error) setError("");
+                                }}
+                                placeholder="Введіть ваш логін"
+                                disabled={loading}
+                                autoComplete="username"
+                                required
+                            />
+                        </div>
+                    </div>
+
+                    <div className="form-group">
+                        <label htmlFor="password" className="form-label">
+                            Пароль
+                        </label>
+                        <div className="input-group">
+                            <div className="input-group__addon">
+                                <Lock style={{width: '1.125rem', height: '1.125rem'}} />
+                            </div>
+                            <input
+                                id="password"
+                                className={`form-input ${error && !password ? 'error' : ''}`}
+                                type="password"
+                                value={password}
+                                onChange={(e) => {
+                                    setPassword(e.target.value);
+                                    if (error) setError("");
+                                }}
+                                placeholder="Введіть ваш пароль"
+                                disabled={loading}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="form-group">
+                        <button 
+                            className="form-button btn-loading"
+                            type="submit"
+                            disabled
+                        >
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     );
 }
 
