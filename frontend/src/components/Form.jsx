@@ -56,9 +56,9 @@ function Form({ route, method }) {
             if (isLogin) {
                 localStorage.setItem(ACCESS_TOKEN, res.data.access);
                 localStorage.setItem(REFRESH_TOKEN, res.data.refresh);
-                navigate("/")
+                navigate("/");
             } else {
-                navigate("/login")
+                navigate("/login");
             }
         } catch (error) {
             console.error("Form submission error:", error);
@@ -78,14 +78,36 @@ function Form({ route, method }) {
                 setError("Помилка з'єднання. Перевірте інтернет");
             }
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
     };
 
     return (
         <div className="form-container">
             <div className="form-card">
+                <div className="form-header">
+                    <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem'}}>
+                        {isLogin ? (
+                            <LogIn style={{width: '2rem', height: '2rem'}} />
+                        ) : (
+                            <UserPlus style={{width: '2rem', height: '2rem'}} />
+                        )}
+                    </div>
+                    <h1>{title}</h1>
+                    <p>{subtitle}</p>
+                </div>
+
                 <form onSubmit={handleSubmit} className="form-body">
+                    {error && (
+                        <div className="alert alert--error">
+                            <AlertCircle style={{width: '1rem', height: '1rem', flexShrink: 0, marginTop: '0.125rem'}} />
+                            <div>
+                                <div className="alert__title">Помилка</div>
+                                <div className="alert__description">{error}</div>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="form-group">
                         <label htmlFor="username" className="form-label">
                             Логін

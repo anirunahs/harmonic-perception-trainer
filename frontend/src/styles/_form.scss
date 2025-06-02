@@ -20,6 +20,24 @@
   overflow: hidden;
 }
 
+.form-header {
+  padding: $space-8 $space-6 $space-6;
+  text-align: center;
+  background: linear-gradient(135deg, $primary-color, $primary-light);
+  color: $white;
+
+  h1 {
+    font-size: $font-size-2xl;
+    font-weight: 700;
+    margin-bottom: $space-2;
+  }
+
+  p {
+    font-size: $font-size-sm;
+    opacity: 0.9;
+  }
+}
+
 .form-body {
   padding: $space-6;
 }
@@ -220,6 +238,67 @@
   }
 }
 
+// Стан завантаження
+.form-loading {
+  position: relative;
+  pointer-events: none;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba($white, 0.8);
+    border-radius: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+// Стан успішного виконання
+.form-success {
+  padding: $space-4;
+  background: rgba($success-color, 0.1);
+  border: 1px solid rgba($success-color, 0.3);
+  border-radius: $radius-md;
+  margin-bottom: $space-5;
+
+  .success-icon {
+    color: $success-color;
+    margin-right: $space-2;
+  }
+
+  .success-message {
+    color: $success-color;
+    font-size: $font-size-sm;
+    font-weight: 500;
+  }
+}
+
+// Адаптив
+@media (max-width: $breakpoint-sm) {
+  .form-container {
+    padding: $space-4;
+  }
+
+  .form-header {
+    padding: $space-6 $space-4 $space-4;
+
+    h1 {
+      font-size: $font-size-xl;
+    }
+  }
+
+  .form-body {
+    padding: $space-4;
+  }
+
+  .form-footer {
+    padding: $space-3 $space-4 $space-4;
+  }
+}
+
+// Скидання та перезаписання стилів
 .form-container .form-button {
   display: flex !important;
   flex-direction: row !important;
