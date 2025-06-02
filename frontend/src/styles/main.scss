@@ -4,3 +4,542 @@
 @use "./form";
 @use "./loading-indicator";
 @use "./audio-recognizer";
+
+// Для тексту
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+.text-justify { text-align: justify; }
+
+.text-primary { color: variables.$text-primary; }
+.text-secondary { color: variables.$text-secondary; }
+.text-light { color: variables.$text-light; }
+.text-white { color: variables.$white; }
+.text-success { color: variables.$success-color; }
+.text-warning { color: variables.$warning-color; }
+.text-error { color: variables.$error-color; }
+
+.text-xs { font-size: variables.$font-size-xs; }
+.text-sm { font-size: variables.$font-size-sm; }
+.text-base { font-size: variables.$font-size-base; }
+.text-lg { font-size: variables.$font-size-lg; }
+.text-xl { font-size: variables.$font-size-xl; }
+.text-2xl { font-size: variables.$font-size-2xl; }
+.text-3xl { font-size: variables.$font-size-3xl; }
+.text-4xl { font-size: variables.$font-size-4xl; }
+
+.font-normal { font-weight: 400; }
+.font-medium { font-weight: 500; }
+.font-semibold { font-weight: 600; }
+.font-bold { font-weight: 700; }
+
+// Для відступів
+.m-0 { margin: 0; }
+.m-1 { margin: variables.$space-1; }
+.m-2 { margin: variables.$space-2; }
+.m-3 { margin: variables.$space-3; }
+.m-4 { margin: variables.$space-4; }
+.m-5 { margin: variables.$space-5; }
+.m-6 { margin: variables.$space-6; }
+.m-8 { margin: variables.$space-8; }
+
+.mt-0 { margin-top: 0; }
+.mt-1 { margin-top: variables.$space-1; }
+.mt-2 { margin-top: variables.$space-2; }
+.mt-3 { margin-top: variables.$space-3; }
+.mt-4 { margin-top: variables.$space-4; }
+.mt-5 { margin-top: variables.$space-5; }
+.mt-6 { margin-top: variables.$space-6; }
+.mt-8 { margin-top: variables.$space-8; }
+
+.mb-0 { margin-bottom: 0; }
+.mb-1 { margin-bottom: variables.$space-1; }
+.mb-2 { margin-bottom: variables.$space-2; }
+.mb-3 { margin-bottom: variables.$space-3; }
+.mb-4 { margin-bottom: variables.$space-4; }
+.mb-5 { margin-bottom: variables.$space-5; }
+.mb-6 { margin-bottom: variables.$space-6; }
+.mb-8 { margin-bottom: variables.$space-8; }
+
+.p-0 { padding: 0; }
+.p-1 { padding: variables.$space-1; }
+.p-2 { padding: variables.$space-2; }
+.p-3 { padding: variables.$space-3; }
+.p-4 { padding: variables.$space-4; }
+.p-5 { padding: variables.$space-5; }
+.p-6 { padding: variables.$space-6; }
+.p-8 { padding: variables.$space-8; }
+
+// Для відображення
+.hidden { display: none; }
+.block { display: block; }
+.inline { display: inline; }
+.inline-block { display: inline-block; }
+.flex { display: flex; }
+.inline-flex { display: inline-flex; }
+.grid { display: grid; }
+
+// Для Flexbox
+.flex-row { flex-direction: row; }
+.flex-col { flex-direction: column; }
+.flex-wrap { flex-wrap: wrap; }
+.flex-nowrap { flex-wrap: nowrap; }
+
+.justify-start { justify-content: flex-start; }
+.justify-end { justify-content: flex-end; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.justify-around { justify-content: space-around; }
+
+.items-start { align-items: flex-start; }
+.items-end { align-items: flex-end; }
+.items-center { align-items: center; }
+.items-baseline { align-items: baseline; }
+.items-stretch { align-items: stretch; }
+
+.flex-1 { flex: 1 1 0%; }
+.flex-auto { flex: 1 1 auto; }
+.flex-none { flex: none; }
+
+// Для позиціонування
+.relative { position: relative; }
+.absolute { position: absolute; }
+.fixed { position: fixed; }
+.sticky { position: sticky; }
+
+// Для рамок
+.border { border: 1px solid variables.$border-color; }
+.border-0 { border: 0; }
+.border-t { border-top: 1px solid variables.$border-color; }
+.border-b { border-bottom: 1px solid variables.$border-color; }
+.border-l { border-left: 1px solid variables.$border-color; }
+.border-r { border-right: 1px solid variables.$border-color; }
+
+.rounded { border-radius: variables.$radius; }
+.rounded-md { border-radius: variables.$radius-md; }
+.rounded-lg { border-radius: variables.$radius-lg; }
+.rounded-xl { border-radius: variables.$radius-xl; }
+.rounded-full { border-radius: variables.$radius-full; }
+
+// Для тіней
+.shadow { box-shadow: variables.$shadow; }
+.shadow-sm { box-shadow: variables.$shadow-sm; }
+.shadow-md { box-shadow: variables.$shadow-md; }
+.shadow-lg { box-shadow: variables.$shadow-lg; }
+.shadow-none { box-shadow: none; }
+
+// Додатково
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: variables.$space-2;
+  padding: variables.$space-3 variables.$space-4;
+  border: 1px solid transparent;
+  border-radius: variables.$radius-md;
+  font-size: variables.$font-size-sm;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all variables.$transition-fast;
+  min-height: 2.5rem;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  // Основна кнопка
+  &--primary {
+    background: variables.$primary-color;
+    color: variables.$white;
+
+    &:hover:not(:disabled) {
+      background: variables.$primary-hover;
+      transform: translateY(-1px);
+      box-shadow: variables.$shadow-md;
+    }
+  }
+
+  // Вторинна кнопка
+  &--secondary {
+    background: variables.$white;
+    color: variables.$text-primary;
+    border-color: variables.$border-color;
+
+    &:hover:not(:disabled) {
+      background: variables.$gray-50;
+      border-color: variables.$gray-300;
+    }
+  }
+
+  // Ghost кнопка
+  &--ghost {
+    background: transparent;
+    color: variables.$text-secondary;
+
+    &:hover:not(:disabled) {
+      background: variables.$gray-100;
+      color: variables.$text-primary;
+    }
+  }
+
+  // Danger кнопка
+  &--danger {
+    background: variables.$error-color;
+    color: variables.$white;
+
+    &:hover:not(:disabled) {
+      background: #dc2626;
+    }
+  }
+
+  // Success кнопка
+  &--success {
+    background: variables.$success-color;
+    color: variables.$white;
+
+    &:hover:not(:disabled) {
+      background: #059669;
+    }
+  }
+
+  // Розміри кнопок
+  &--sm {
+    padding: variables.$space-2 variables.$space-3;
+    font-size: variables.$font-size-xs;
+    min-height: 2rem;
+  }
+
+  &--lg {
+    padding: variables.$space-4 variables.$space-6;
+    font-size: variables.$font-size-lg;
+    min-height: 3rem;
+  }
+
+  // Кнопка-іконка
+  &--icon {
+    padding: variables.$space-2;
+    min-width: 2.5rem;
+
+    &.btn--sm {
+      min-width: 2rem;
+    }
+
+    &.btn--lg {
+      min-width: 3rem;
+    }
+  }
+}
+
+// Картка
+.card {
+  background: variables.$white;
+  border: 1px solid variables.$border-color;
+  border-radius: variables.$radius-lg;
+  box-shadow: variables.$shadow;
+  overflow: hidden;
+
+  &__header {
+    padding: variables.$space-4 variables.$space-6;
+    border-bottom: 1px solid variables.$border-color-light;
+    background: variables.$bg-secondary;
+
+    h1, h2, h3, h4, h5, h6 {
+      font-weight: 600;
+      color: variables.$text-primary;
+    }
+  }
+
+  &__body {
+    padding: variables.$space-6;
+  }
+
+  &__footer {
+    padding: variables.$space-4 variables.$space-6;
+    border-top: 1px solid variables.$border-color-light;
+    background: variables.$bg-secondary;
+  }
+
+  // Варіанти карток
+  &--elevated {
+    box-shadow: variables.$shadow-lg;
+  }
+
+  &--bordered {
+    border-color: variables.$border-color;
+  }
+
+  &--flush {
+    border: none;
+    box-shadow: none;
+  }
+}
+
+// Компонент повідомлення
+.alert {
+  padding: variables.$space-4;
+  border-radius: variables.$radius-md;
+  border: 1px solid transparent;
+  margin-bottom: variables.$space-4;
+
+  &__title {
+    font-weight: 600;
+    margin-bottom: variables.$space-2;
+  }
+
+  &__description {
+    font-size: variables.$font-size-sm;
+    line-height: 1.5;
+  }
+
+  // Варіанти повідомлень
+  &--info {
+    background: rgba(variables.$primary-color, 0.1);
+    border-color: rgba(variables.$primary-color, 0.3);
+    color: variables.$primary-color;
+  }
+
+  &--success {
+    background: rgba(variables.$success-color, 0.1);
+    border-color: rgba(variables.$success-color, 0.3);
+    color: variables.$success-color;
+  }
+
+  &--warning {
+    background: rgba(variables.$warning-color, 0.1);
+    border-color: rgba(variables.$warning-color, 0.3);
+    color: variables.$warning-color;
+  }
+
+  &--error {
+    background: rgba(variables.$error-color, 0.1);
+    border-color: rgba(variables.$error-color, 0.3);
+    color: variables.$error-color;
+  }
+}
+
+// Badge компонент
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: variables.$space-1 variables.$space-2;
+  font-size: variables.$font-size-xs;
+  font-weight: 500;
+  border-radius: variables.$radius-full;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+
+  // Badge варіанти
+  &--primary {
+    background: variables.$primary-color;
+    color: variables.$white;
+  }
+
+  &--secondary {
+    background: variables.$gray-200;
+    color: variables.$text-primary;
+  }
+
+  &--success {
+    background: variables.$success-color;
+    color: variables.$white;
+  }
+
+  &--warning {
+    background: variables.$warning-color;
+    color: variables.$white;
+  }
+
+  &--error {
+    background: variables.$error-color;
+    color: variables.$white;
+  }
+
+  &--outline {
+    background: transparent;
+    border: 1px solid currentColor;
+  }
+
+  // Badge розміри
+  &--sm {
+    padding: 2px variables.$space-1;
+    font-size: 0.625rem;
+  }
+
+  &--lg {
+    padding: variables.$space-2 variables.$space-3;
+    font-size: variables.$font-size-sm;
+  }
+}
+
+// Група інпутів
+.input-group {
+  display: flex;
+  width: 100%;
+
+  .form-input {
+    border-radius: 0;
+
+    &:first-child {
+      border-top-left-radius: variables.$radius-md;
+      border-bottom-left-radius: variables.$radius-md;
+    }
+
+    &:last-child {
+      border-top-right-radius: variables.$radius-md;
+      border-bottom-right-radius: variables.$radius-md;
+    }
+
+    &:not(:last-child) {
+      border-right: none;
+    }
+
+    &:focus {
+      z-index: 1;
+      position: relative;
+    }
+  }
+
+  &__addon {
+    display: flex;
+    align-items: center;
+    padding: variables.$space-3 variables.$space-4;
+    background: variables.$gray-100;
+    border: 1px solid variables.$border-color;
+    color: variables.$text-secondary;
+    font-size: variables.$font-size-sm;
+    white-space: nowrap;
+
+    &:first-child {
+      border-top-left-radius: variables.$radius-md;
+      border-bottom-left-radius: variables.$radius-md;
+      border-right: none;
+    }
+
+    &:last-child {
+      border-top-right-radius: variables.$radius-md;
+      border-bottom-right-radius: variables.$radius-md;
+      border-left: none;
+    }
+  }
+}
+
+// Роздільник
+.divider {
+  border: none;
+  height: 1px;
+  background: variables.$border-color;
+  margin: variables.$space-6 0;
+
+  &--vertical {
+    width: 1px;
+    height: auto;
+    margin: 0 variables.$space-4;
+    align-self: stretch;
+  }
+
+  &--dashed {
+    background: none;
+    border-top: 1px dashed variables.$border-color;
+  }
+
+  &--thick {
+    height: 2px;
+  }
+}
+
+// Tooltip (базові стилі позиціонування)
+.tooltip {
+  position: relative;
+  display: inline-block;
+
+  &__content {
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    z-index: variables.$z-tooltip;
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: variables.$space-2 variables.$space-3;
+    background: variables.$gray-900;
+    color: variables.$white;
+    font-size: variables.$font-size-xs;
+    border-radius: variables.$radius;
+    white-space: nowrap;
+    transition: all variables.$transition-fast;
+    pointer-events: none;
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 4px solid transparent;
+      border-top-color: variables.$gray-900;
+    }
+  }
+
+  &:hover .tooltip__content {
+    visibility: visible;
+    opacity: 1;
+  }
+
+  // Tooltip позиції
+  &--top .tooltip__content {
+    bottom: 125%;
+    top: auto;
+
+    &::after {
+      top: 100%;
+      border-top-color: variables.$gray-900;
+      border-bottom: none;
+    }
+  }
+
+  &--bottom .tooltip__content {
+    top: 125%;
+    bottom: auto;
+
+    &::after {
+      bottom: 100%;
+      top: auto;
+      border-bottom-color: variables.$gray-900;
+      border-top: none;
+    }
+  }
+
+  &--left .tooltip__content {
+    right: 125%;
+    left: auto;
+    top: 50%;
+    transform: translateY(-50%);
+
+    &::after {
+      left: 100%;
+      top: 50%;
+      transform: translateY(-50%);
+      border-left-color: variables.$gray-900;
+      border-right: none;
+    }
+  }
+
+  &--right .tooltip__content {
+    left: 125%;
+    right: auto;
+    top: 50%;
+    transform: translateY(-50%);
+
+    &::after {
+      right: 100%;
+      left: auto;
+      top: 50%;
+      transform: translateY(-50%);
+      border-right-color: variables.$gray-900;
+      border-left: none;
+    }
+  }
+}
