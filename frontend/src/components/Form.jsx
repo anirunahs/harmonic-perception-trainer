@@ -1,7 +1,7 @@
 import { useState } from "react";
 import api from "../api";
-import { useNavigate } from "react-router-dom";
-import { User, Lock } from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
+import { User, Lock, LogIn, UserPlus, AlertCircle } from "lucide-react";
 import { ACCESS_TOKEN, REFRESH_TOKEN } from "../constants";
 import LoadingIndicator from "./LoadingIndicator";
 
@@ -52,7 +52,8 @@ function Form({ route, method }) {
 
         try {
             const res = await api.post(route, { username, password })
-            if (method === "login") {
+
+            if (isLogin) {
                 localStorage.setItem(ACCESS_TOKEN, res.data.access);
                 localStorage.setItem(REFRESH_TOKEN, res.data.refresh);
                 navigate("/")
@@ -60,7 +61,22 @@ function Form({ route, method }) {
                 navigate("/login")
             }
         } catch (error) {
-            alert(error)
+            console.error("Form submission error:", error);
+            
+            if (error.response?.data) {
+                const errorData = error.response.data;
+                if (errorData.username) {
+                    setError("Цей логін вже використовується");
+                } else if (errorData.password) {
+                    setError("Невірний формат паролю");
+                } else if (errorData.detail || errorData.non_field_errors) {
+                    setError(isLogin ? "Невірний логін або пароль" : "Помилка реєстрації");
+                } else {
+                    setError("Виникла помилка. Спробуйте пізніше");
+                }
+            } else {
+                setError("Помилка з'єднання. Перевірте інтернет");
+            }
         } finally {
             setLoading(false)
         }
@@ -114,19 +130,46 @@ function Form({ route, method }) {
                                 }}
                                 placeholder="Введіть ваш пароль"
                                 disabled={loading}
+                                autoComplete={isLogin ? "current-password" : "new-password"}
+                                required
                             />
                         </div>
+                        {!isLogin && (
+                            <div className="form-help">
+                                Пароль повинен містити мінімум 3 символи
+                            </div>
+                        )}
                     </div>
 
                     <div className="form-group">
-                        <button 
-                            className="form-button btn-loading"
-                            type="submit"
-                            disabled
-                        >
-                        </button>
+                        {loading ? (
+                            <button 
+                                className="form-button btn-loading"
+                                type="submit"
+                                disabled
+                            >
+                                <div className="btn-loading__spinner">
+                                    <div className="loader"></div>
+                                </div>
+                            </button>
+                        ) : (
+                            <button 
+                                className="form-button"
+                                type="submit"
+                            >
+                                {isLogin ? <LogIn /> : <UserPlus />}
+                                <span>{buttonText}</span>
+                            </button>
+                        )}
                     </div>
                 </form>
+
+                <div className="form-footer">
+                    <p>{linkText}</p>
+                    <Link to={linkTo} className="font-medium">
+                        {linkAction}
+                    </Link>
+                </div>
             </div>
         </div>
     );
