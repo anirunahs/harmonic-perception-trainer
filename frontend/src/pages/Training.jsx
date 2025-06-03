@@ -29,6 +29,22 @@ const Training = () => {
 
   const notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
+  const handleIntervalToggle = (intervalId) => {
+    setSelectedIntervals(prev => 
+      prev.includes(intervalId)
+        ? prev.filter(id => id !== intervalId)
+        : [...prev, intervalId]
+    );
+  };
+
+  const handleSelectAllIntervals = () => {
+    setSelectedIntervals(intervals.map(interval => interval.id));
+  };
+
+  const handleClearIntervals = () => {
+    setSelectedIntervals([]);
+  };
+
   return (
     <>
       <Header />
@@ -53,16 +69,53 @@ const Training = () => {
               <div className="training-settings__body">
                 <div className="setting-group">
                   <label className="setting-group__label">Базова нота</label>
-                  <div className="note-selector"> </div>
+                  <div className="note-selector">
+                    {notes.map(note => (
+                      <button
+                        key={note}
+                        className={`note-selector__button ${selectedNote === note ? 'note-selector__button--active' : ''}`}
+                        onClick={() => setSelectedNote(note)}
+                      >
+                        {note}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="setting-group">
                   <div className="setting-group__header">
                     <label className="setting-group__label">Інтервали для тренування</label>
-                    <div className="setting-group__actions"> </div>
+                    <div className="setting-group__actions">
+                      <button 
+                        className="btn btn--ghost btn--sm"
+                        onClick={handleSelectAllIntervals}
+                      >
+                        Обрати всі
+                      </button>
+                      <button 
+                        className="btn btn--ghost btn--sm"
+                        onClick={handleClearIntervals}
+                      >
+                        Очистити
+                      </button>
+                    </div>
                   </div>
                   
-                  <div className="interval-selector"></div>
+                  <div className="interval-selector">
+                    {intervals.map(interval => (
+                      <label key={interval.id} className="interval-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={selectedIntervals.includes(interval.id)}
+                          onChange={() => handleIntervalToggle(interval.id)}
+                        />
+                        <span className="interval-checkbox__checkmark"></span>
+                        <span className="interval-checkbox__label">
+                          {interval.name} ({interval.semitones} пт)
+                        </span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="setting-group">
