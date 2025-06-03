@@ -23,7 +23,7 @@ function Header() {
       path: "/training", 
       label: "Тренування", 
       icon: Ear, 
-      disabled: true 
+      active: isActive("/training") 
     },
     { 
       path: "/testing", 
