@@ -47,7 +47,25 @@ const Training = () => {
   };
 
   const generateIntervals = async () => {
-    return;
+    if (selectedIntervals.length === 0) {
+      alert("Будь ласка, оберіть хоча б один інтервал");
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const response = await api.post("/api/training/generate-intervals/", {
+        intervals: selectedIntervals,
+        base_note: selectedNote
+      });
+
+      setGeneratedIntervals(response.data.intervals);
+    } catch (error) {
+      console.error("Помилка генерації інтервалів:", error);
+      alert("Помилка при генерації інтервалів. Спробуйте пізніше.");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const clearGenerated = () => {
