@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import { Play, Square, Volume2, VolumeX, Settings, Trash2, RotateCcw } from "lucide-react";
 import Header from "../components/Header";
+import LoadingIndicator from "../components/LoadingIndicator";
 import api from "../api";
 
 const Training = () => {
@@ -43,6 +44,29 @@ const Training = () => {
 
   const handleClearIntervals = () => {
     setSelectedIntervals([]);
+  };
+
+  const generateIntervals = async () => {
+    return;
+  };
+
+  const clearGenerated = () => {
+    setGeneratedIntervals([]);
+    setCurrentPlaying(null);
+    Object.values(audioRefs.current).forEach(audio => {
+      if (audio) {
+        audio.pause();
+        audio.currentTime = 0;
+      }
+    });
+  };
+
+  const playAudio = async (intervalId, playType) => {
+    return;
+  };
+
+  const getIntervalName = (intervalId) => {
+    return intervals.find(int => int.id === intervalId)?.name || intervalId;
   };
 
   return (
@@ -122,14 +146,96 @@ const Training = () => {
                   <div className="setting-actions">
                     <button
                       className="btn btn--primary"
+                      onClick={generateIntervals}
+                      disabled={isGenerating || selectedIntervals.length === 0}
                     >
-                      <Volume2 />
-                      <span>Згенерувати інтервали</span>
+                      {isGenerating ? (
+                        <>
+                          <LoadingIndicator size="small" />
+                          <span>Генерація...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Volume2 />
+                          <span>Згенерувати інтервали</span>
+                        </>
+                      )}
                     </button>
+
+                    {generatedIntervals.length > 0 && (
+                      <button
+                        className="btn btn--ghost"
+                        onClick={clearGenerated}
+                      >
+                        <Trash2 />
+                        <span>Очистити</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
+
+            {generatedIntervals.length > 0 && (
+              <div className="generated-intervals">
+                <div className="generated-intervals__header">
+                  <h2 className="generated-intervals__title">
+                    Згенеровані інтервали
+                  </h2>
+                  <div className="generated-intervals__info">
+                    Базова нота: <strong>{selectedNote}</strong> | 
+                    Кількість інтервалів: <strong>{generatedIntervals.length}</strong>
+                  </div>
+                </div>
+
+                <div className="intervals-grid">
+                  {generatedIntervals.map(interval => (
+                    <div key={interval.id} className="interval-card">
+                      <div className="interval-card__header">
+                        <h3 className="interval-card__title">
+                          {getIntervalName(interval.interval_type)}
+                        </h3>
+                        <div className="interval-card__notes">
+                          {interval.base_note} → {interval.target_note}
+                        </div>
+                      </div>
+
+                      <div className="interval-card__controls">
+                        <button
+                          className={`interval-play-btn ${
+                            currentPlaying === `${interval.id}_harmonic` ? 'interval-play-btn--playing' : ''
+                          }`}
+                          onClick={() => playAudio(interval.id, 'harmonic')}
+                          disabled={isGenerating}
+                        >
+                          {currentPlaying === `${interval.id}_harmonic` ? (
+                            <Square />
+                          ) : (
+                            <Play />
+                          )}
+                          <span>Цілісно</span>
+                        </button>
+
+                        <button
+                          className={`interval-play-btn interval-play-btn--secondary ${
+                            currentPlaying === `${interval.id}_melodic` ? 'interval-play-btn--playing' : ''
+                          }`}
+                          onClick={() => playAudio(interval.id, 'melodic')}
+                          disabled={isGenerating}
+                        >
+                          {currentPlaying === `${interval.id}_melodic` ? (
+                            <Square />
+                          ) : (
+                            <Play />
+                          )}
+                          <span>Поступово</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
