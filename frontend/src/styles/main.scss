@@ -1,9 +1,10 @@
 @use "./variables";
-@use "./global.scss";
+@use "./global";
 @use "./header";
 @use "./form";
 @use "./loading-indicator";
 @use "./audio-recognizer";
+@use "./training";
 
 // Для тексту
 .text-center { text-align: center; }
