@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Play, Square, Volume2, VolumeX, Settings, Trash2, RotateCcw } from "lucide-react";
 import Header from "../components/Header";
 import LoadingIndicator from "../components/LoadingIndicator";
@@ -10,7 +10,8 @@ const Training = () => {
   const [generatedIntervals, setGeneratedIntervals] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentPlaying, setCurrentPlaying] = useState(null);
-  const [lastPlayedNote, setLastPlayedNote] = useState(null);
+  const [audioError, setAudioError] = useState(null);
+  const [loadingAudio, setLoadingAudio] = useState(null);
   const audioRefs = useRef({});
 
   const intervals = [
@@ -29,6 +30,17 @@ const Training = () => {
   ];
 
   const notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
+  useEffect(() => {
+    return () => {
+      Object.values(audioRefs.current).forEach(audio => {
+        if (audio) {
+          audio.pause();
+          audio.src = '';
+        }
+      });
+    };
+  }, []);
 
   const handleIntervalToggle = (intervalId) => {
     setSelectedIntervals(prev => 
@@ -53,6 +65,8 @@ const Training = () => {
     }
 
     setIsGenerating(true);
+    setAudioError(null);
+    
     try {
       const response = await api.post("/api/training/generate-intervals/", {
         intervals: selectedIntervals,
@@ -60,27 +74,198 @@ const Training = () => {
       });
 
       setGeneratedIntervals(response.data.intervals);
+      console.log('Generated intervals:', response.data.intervals);
     } catch (error) {
       console.error("Помилка генерації інтервалів:", error);
-      alert("Помилка при генерації інтервалів. Спробуйте пізніше.");
+      setAudioError("Помилка при генерації інтервалів. Спробуйте пізніше.");
     } finally {
       setIsGenerating(false);
     }
   };
 
   const clearGenerated = () => {
-    setGeneratedIntervals([]);
     setCurrentPlaying(null);
+    setAudioError(null);
+    setLoadingAudio(null);
+
     Object.values(audioRefs.current).forEach(audio => {
       if (audio) {
+        audio.onended = null;
+        audio.onerror = null;
+        audio.oncanplay = null;
+        audio.onloadstart = null;
+
         audio.pause();
         audio.currentTime = 0;
+        audio.src = '';
+        audio.load();
       }
     });
+
+    audioRefs.current = {};
+    setGeneratedIntervals([]);
   };
 
   const playAudio = async (intervalId, playType) => {
-    return;
+    const playId = `${intervalId}_${playType}`;
+    
+    if (currentPlaying && audioRefs.current[currentPlaying]) {
+      audioRefs.current[currentPlaying].pause();
+      audioRefs.current[currentPlaying].currentTime = 0;
+    }
+
+    if (currentPlaying === playId) {
+      setCurrentPlaying(null);
+      return;
+    }
+
+    try {
+      setAudioError(null);
+      setLoadingAudio(playId);
+      
+      const interval = generatedIntervals.find(int => int.id === intervalId);
+      if (!interval) {
+        throw new Error("Інтервал не знайдено");
+      }
+
+      if (!audioRefs.current[playId]) {
+        const audio = new Audio();
+        audioRefs.current[playId] = audio;
+        
+        audio.preload = 'metadata';
+        
+        audio.onloadstart = () => {
+          console.log(`Loading started for ${playId}`);
+        };
+        
+        audio.oncanplay = () => {
+          console.log(`Can play ${playId}`);
+          setLoadingAudio(null);
+        };
+        
+        audio.onended = () => {
+          console.log(`Ended ${playId}`);
+          setCurrentPlaying(null);
+          setLoadingAudio(null);
+        };
+        
+        audio.onerror = (e) => {
+          if (!audioRefs.current[playId]) {
+            return;
+          }
+
+          console.error("Audio error:", e);
+          
+          if (!audio.src || audio.src === '' || audio.src === window.location.href) {
+            return;
+          }
+          
+          let errorMessage = "Помилка відтворення аудіо";
+          if (audio.error) {
+            switch (audio.error.code) {
+              case audio.error.MEDIA_ERR_ABORTED:
+                errorMessage = "Відтворення було перервано";
+                break;
+              case audio.error.MEDIA_ERR_NETWORK:
+                errorMessage = "Помилка мережі при завантаженні аудіо";
+                break;
+              case audio.error.MEDIA_ERR_DECODE:
+                errorMessage = "Помилка декодування аудіо";
+                break;
+              case audio.error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                errorMessage = "Формат аудіо не підтримується";
+                break;
+              default:
+                errorMessage = `Невідома помилка аудіо (код: ${audio.error.code})`;
+            }
+          }
+          
+          setAudioError(errorMessage);
+          setCurrentPlaying(null);
+          setLoadingAudio(null);
+        };
+      }
+
+      const audio = audioRefs.current[playId];
+      
+      const audioUrl = playType === 'harmonic' ? interval.harmonic_url : interval.melodic_url;
+      
+      try {
+        const response = await api.get(audioUrl, {
+          responseType: 'blob'
+        });
+        
+        const audioBlob = new Blob([response.data], { type: 'audio/wav' });
+        const blobUrl = URL.createObjectURL(audioBlob);
+        
+        audio.src = blobUrl;
+        
+        const originalOnended = audio.onended;
+        audio.onended = () => {
+          URL.revokeObjectURL(blobUrl);
+          if (originalOnended) originalOnended();
+        };
+        
+      } catch (error) {
+        console.error("Помилка завантаження аудіо:", error);
+        throw new Error("Не вдалося завантажити аудіофайл");
+      }
+      
+      audio.load();
+      setCurrentPlaying(playId);
+      
+      await new Promise((resolve, reject) => {
+        const onCanPlay = () => {
+          audio.removeEventListener('canplay', onCanPlay);
+          audio.removeEventListener('error', onError);
+          resolve();
+        };
+        
+        const onError = (e) => {
+          audio.removeEventListener('canplay', onCanPlay);
+          audio.removeEventListener('error', onError);
+          reject(e);
+        };
+        
+        audio.addEventListener('canplay', onCanPlay);
+        audio.addEventListener('error', onError);
+        
+        setTimeout(() => {
+          audio.removeEventListener('canplay', onCanPlay);
+          audio.removeEventListener('error', onError);
+          reject(new Error('Таймаут завантаження аудіо'));
+        }, 10000);
+      });
+      
+      await audio.play();
+      setLoadingAudio(null);
+      
+    } catch (error) {
+      console.error("Помилка відтворення:", error);
+      setAudioError(`Помилка відтворення: ${error.message}`);
+      setCurrentPlaying(null);
+      setLoadingAudio(null);
+    }
+  };
+
+  const stopAudio = () => {
+    if (currentPlaying && audioRefs.current[currentPlaying]) {
+      const audio = audioRefs.current[currentPlaying];
+
+      const originalOnError = audio.onerror;
+      audio.onerror = null;
+      audio.pause();
+      audio.currentTime = 0;
+      
+      setTimeout(() => {
+        if (audio) {
+          audio.onerror = originalOnError;
+        }
+      }, 100);
+      
+      setCurrentPlaying(null);
+    }
+    setLoadingAudio(null);
   };
 
   const getIntervalName = (intervalId) => {
@@ -194,6 +379,24 @@ const Training = () => {
               </div>
             </div>
 
+            {audioError && (
+              <div className="status-card status-card--error">
+                <div className="status-card__icon">
+                  <VolumeX />
+                </div>
+                <div className="status-card__content">
+                  <h3 className="status-card__title">Помилка відтворення</h3>
+                  <p className="status-card__description">{audioError}</p>
+                  <button 
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => setAudioError(null)}
+                  >
+                    Закрити
+                  </button>
+                </div>
+              </div>
+            )}
+
             {generatedIntervals.length > 0 && (
               <div className="generated-intervals">
                 <div className="generated-intervals__header">
@@ -222,11 +425,15 @@ const Training = () => {
                         <button
                           className={`interval-play-btn ${
                             currentPlaying === `${interval.id}_harmonic` ? 'interval-play-btn--playing' : ''
+                          } ${
+                            loadingAudio === `${interval.id}_harmonic` ? 'interval-play-btn--loading' : ''
                           }`}
                           onClick={() => playAudio(interval.id, 'harmonic')}
-                          disabled={isGenerating}
+                          disabled={isGenerating || loadingAudio === `${interval.id}_harmonic`}
                         >
-                          {currentPlaying === `${interval.id}_harmonic` ? (
+                          {loadingAudio === `${interval.id}_harmonic` ? (
+                            <LoadingIndicator size="small" />
+                          ) : currentPlaying === `${interval.id}_harmonic` ? (
                             <Square />
                           ) : (
                             <Play />
@@ -237,11 +444,15 @@ const Training = () => {
                         <button
                           className={`interval-play-btn interval-play-btn--secondary ${
                             currentPlaying === `${interval.id}_melodic` ? 'interval-play-btn--playing' : ''
+                          } ${
+                            loadingAudio === `${interval.id}_melodic` ? 'interval-play-btn--loading' : ''
                           }`}
                           onClick={() => playAudio(interval.id, 'melodic')}
-                          disabled={isGenerating}
+                          disabled={isGenerating || loadingAudio === `${interval.id}_melodic`}
                         >
-                          {currentPlaying === `${interval.id}_melodic` ? (
+                          {loadingAudio === `${interval.id}_melodic` ? (
+                            <LoadingIndicator size="small" />
+                          ) : currentPlaying === `${interval.id}_melodic` ? (
                             <Square />
                           ) : (
                             <Play />
@@ -249,9 +460,34 @@ const Training = () => {
                           <span>Поступово</span>
                         </button>
                       </div>
+
+                      {currentPlaying && currentPlaying.startsWith(interval.id) && (
+                        <div className="interval-card__status">
+                          <div className="playing-indicator">
+                            <div className="playing-indicator__bars">
+                              <div className="playing-indicator__bar"></div>
+                              <div className="playing-indicator__bar"></div>
+                              <div className="playing-indicator__bar"></div>
+                            </div>
+                            <span>Відтворюється...</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
+
+                {currentPlaying && (
+                  <div className="global-controls">
+                    <button
+                      className="btn btn--danger btn--sm"
+                      onClick={stopAudio}
+                    >
+                      <Square />
+                      <span>Зупинити відтворення</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -259,8 +495,6 @@ const Training = () => {
       </div>
     </>
   );
-
-
 };
 
-export default Training
+export default Training;
