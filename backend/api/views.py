@@ -1,13 +1,15 @@
 from django.shortcuts import render
 from django.contrib.auth.models import User
-from rest_framework import generics
+from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.decorators import authentication_classes, permission_classes
 from .serializers import UserSerializer
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.conf import settings
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, HttpResponse
+from django.views import View
 import os
 import uuid
 import numpy as np
@@ -24,7 +26,7 @@ class GenerateIntervalsView(APIView):
     
     def __init__(self):
         super().__init__()
-        # Частоти нот в герцах (4-та октава)
+
         self.note_frequencies = {
             'C': 261.63,
             'C#': 277.18,
@@ -40,7 +42,6 @@ class GenerateIntervalsView(APIView):
             'B': 493.88
         }
         
-        # Визначення інтервалів (півтони)
         self.intervals_semitones = {
             'minor_second': 1,
             'major_second': 2,
@@ -56,7 +57,6 @@ class GenerateIntervalsView(APIView):
             'perfect_octave': 12
         }
         
-        # Створюємо директорію для аудіофайлів
         self.audio_dir = os.path.join(settings.MEDIA_ROOT, 'training_audio')
         os.makedirs(self.audio_dir, exist_ok=True)
 
@@ -70,21 +70,18 @@ class GenerateIntervalsView(APIView):
         """Генерація тону з тембром, схожим на рояль"""
         t = np.linspace(0, duration, int(sample_rate * duration), False)
         
-        # Основна частота
         wave = np.sin(2 * np.pi * frequency * t)
         
-        # Додаємо гармоніки для більш реалістичного звучання рояля
         harmonics = [
-            (2, 0.3),    # Друга гармоніка
-            (3, 0.2),    # Третя гармоніка
-            (4, 0.1),    # Четверта гармоніка
-            (5, 0.05),   # П'ята гармоніка
+            (2, 0.3),
+            (3, 0.2),
+            (4, 0.1),
+            (5, 0.05),
         ]
         
         for harmonic, amplitude in harmonics:
             wave += amplitude * np.sin(2 * np.pi * frequency * harmonic * t)
         
-        # Додаємо envelope (ADSR) для більш природного звучання
         attack_time = 0.1
         decay_time = 0.3
         sustain_level = 0.7
@@ -92,47 +89,37 @@ class GenerateIntervalsView(APIView):
         
         envelope = np.ones_like(t)
         
-        # Attack
         attack_samples = int(attack_time * sample_rate)
         if attack_samples > 0:
             envelope[:attack_samples] = np.linspace(0, 1, attack_samples)
         
-        # Decay
         decay_samples = int(decay_time * sample_rate)
         if decay_samples > 0 and attack_samples + decay_samples < len(envelope):
             envelope[attack_samples:attack_samples + decay_samples] = np.linspace(1, sustain_level, decay_samples)
         
-        # Sustain
         sustain_start = attack_samples + decay_samples
         release_start = len(envelope) - int(release_time * sample_rate)
         if sustain_start < release_start:
             envelope[sustain_start:release_start] = sustain_level
         
-        # Release
         release_samples = int(release_time * sample_rate)
         if release_samples > 0:
             envelope[-release_samples:] = np.linspace(sustain_level, 0, release_samples)
         
-        # Застосовуємо envelope
         wave *= envelope
         
-        # Нормалізуємо амплітуду
         wave = wave / np.max(np.abs(wave)) * 0.7
         
         return wave
 
     def save_audio(self, audio_data, filename, sample_rate=44100):
-        """Зберегти аудіо дані у файл"""
         filepath = os.path.join(self.audio_dir, filename)
-        
-        # Конвертуємо у 16-bit integer
         audio_int16 = np.int16(audio_data * 32767)
         
         wavfile.write(filepath, sample_rate, audio_int16)
         return filepath
 
     def get_target_note(self, base_note, semitones):
-        """Отримати ноту через вказану кількість півтонів"""
         notes = list(self.note_frequencies.keys())
         base_index = notes.index(base_note)
         target_index = (base_index + semitones) % 12
@@ -156,7 +143,6 @@ class GenerateIntervalsView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Очищуємо старі файли користувача
             user_audio_dir = os.path.join(self.audio_dir, str(request.user.id))
             if os.path.exists(user_audio_dir):
                 shutil.rmtree(user_audio_dir)
@@ -171,26 +157,19 @@ class GenerateIntervalsView(APIView):
                 semitones = self.intervals_semitones[interval_type]
                 target_note = self.get_target_note(base_note, semitones)
                 
-                # Генеруємо частоти
                 base_freq = self.get_note_frequency(base_note)
                 target_freq = self.get_note_frequency(base_note, semitones)
                 
-                # Генеруємо тони
                 base_tone = self.generate_piano_tone(base_freq)
                 target_tone = self.generate_piano_tone(target_freq)
                 
-                # Створюємо гармонічний інтервал (одночасно)
                 harmonic_audio = (base_tone + target_tone) / 2
-                
-                # Створюємо мелодичний інтервал (послідовно)
                 melodic_audio = np.concatenate([base_tone, target_tone])
                 
-                # Генеруємо унікальні імена файлів
                 interval_id = str(uuid.uuid4())
                 harmonic_filename = f"{interval_id}_harmonic.wav"
                 melodic_filename = f"{interval_id}_melodic.wav"
                 
-                # Зберігаємо файли
                 harmonic_path = self.save_audio(
                     harmonic_audio, 
                     os.path.join(str(request.user.id), harmonic_filename)
@@ -200,7 +179,6 @@ class GenerateIntervalsView(APIView):
                     os.path.join(str(request.user.id), melodic_filename)
                 )
                 
-                # Формуємо URL для доступу до файлів
                 harmonic_url = f"/api/training/audio/{request.user.id}/{harmonic_filename}"
                 melodic_url = f"/api/training/audio/{request.user.id}/{melodic_filename}"
                 
@@ -224,5 +202,96 @@ class GenerateIntervalsView(APIView):
             return Response(
                 {'error': f'Помилка генерації: {str(e)}'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )  
+class SecureAudioView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+    
+    def get(self, request, user_id, filename):
+        
+        if str(request.user.id) != str(user_id):
+            return HttpResponse("Доступ заборонено", status=403)
+        
+        audio_dir = os.path.join(settings.MEDIA_ROOT, 'training_audio')
+        file_path = os.path.join(audio_dir, user_id, filename)
+        
+        allowed_dir = os.path.join(audio_dir, user_id)
+        try:
+            real_file_path = os.path.realpath(file_path)
+            real_allowed_dir = os.path.realpath(allowed_dir)
+            
+            if not real_file_path.startswith(real_allowed_dir):
+                return HttpResponse("Доступ заборонено", status=403)
+                
+        except Exception:
+            return HttpResponse("Помилка доступу", status=400)
+        
+        if not os.path.exists(file_path):
+            return HttpResponse("Файл не знайдено", status=404)
+        
+        if not filename.endswith('.wav'):
+            return HttpResponse("Непідтримуваний тип файлу", status=400)
+        
+        try:
+            file_size = os.path.getsize(file_path)
+            content_type = 'audio/wav'
+            
+            range_header = request.META.get('HTTP_RANGE')
+            
+            if range_header:
+                range_match = range_header.replace('bytes=', '').split('-')
+                start = int(range_match[0]) if range_match[0] else 0
+                end = int(range_match[1]) if range_match[1] else file_size - 1
+                
+                with open(file_path, 'rb') as f:
+                    f.seek(start)
+                    data = f.read(end - start + 1)
+                
+                response = HttpResponse(
+                    data,
+                    status=206,
+                    content_type=content_type
+                )
+                response['Content-Range'] = f'bytes {start}-{end}/{file_size}'
+                response['Accept-Ranges'] = 'bytes'
+                response['Content-Length'] = str(end - start + 1)
+            else:
+                response = FileResponse(
+                    open(file_path, 'rb'),
+                    content_type=content_type,
+                    filename=filename
+                )
+                response['Content-Length'] = str(file_size)
+                response['Accept-Ranges'] = 'bytes'
+            
+            response['Cache-Control'] = 'private, max-age=300'
+            response['X-Content-Type-Options'] = 'nosniff'
+            
+            return response
+            
+        except Exception as e:
+            print(f"Error serving file: {e}")
+            return HttpResponse("Помилка при видачі файлу", status=500)
+        
+class ClearUserAudioView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def delete(self, request):
+        """Очищення аудіофайлів користувача"""
+        try:
+            user_audio_dir = os.path.join(
+                settings.MEDIA_ROOT, 
+                'training_audio', 
+                str(request.user.id)
             )
-
+            
+            if os.path.exists(user_audio_dir):
+                shutil.rmtree(user_audio_dir)
+            
+            return Response({'message': 'Файли успішно видалено'})
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Помилка видалення файлів: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
