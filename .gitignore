@@ -13,3 +13,6 @@ __pycache__/
 
 # БД
 *.sqlite3
+
+# Медіа
+backend/media/
