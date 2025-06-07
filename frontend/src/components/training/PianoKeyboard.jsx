@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Piano, ChevronDown } from "lucide-react";
+import { Piano, Settings, Zap, VolumeX, ChevronDown } from "lucide-react";
 
 const PianoKeyboard = ({ 
   isFixed = true, 
@@ -10,16 +10,20 @@ const PianoKeyboard = ({
   onNotePlay = null 
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [activeKeys, setActiveKeys] = useState(new Set());
+  const [showSettings, setShowSettings] = useState(false);
+  const [pedalPressed, setPedalPressed] = useState(false);
   const [settings, setSettings] = useState({
     showNoteNames,
     showOctaves,
     startOctave: Math.min(startOctave, endOctave),
     endOctave: Math.max(startOctave, endOctave)
   });
-  
+    
   const audioContextRef = useRef(null);
   const oscillatorsRef = useRef(new Map());
   const timeoutsRef = useRef(new Map());
+  const pressedKeysRef = useRef(new Set());
 
   const octaveNames = {
     '-1': 'Субконтр',
@@ -95,7 +99,7 @@ const PianoKeyboard = ({
     };
   }, []);
 
-  const generatePianoTone = useCallback((frequency, duration = 1.0) => {
+  const generatePianoTone = useCallback((frequency, duration, isHeld = false) => {
     if (!audioContextRef.current || audioContextRef.current.state !== 'running') {
       return null;
     }
@@ -137,10 +141,24 @@ const PianoKeyboard = ({
       });
 
       const now = audioContext.currentTime;
-      const attackTime = 0.01;
-      const decayTime = 0.1;
-      const sustainLevel = 0.5;
-      const releaseTime = duration - attackTime - decayTime;
+      let attackTime, decayTime, sustainLevel, releaseTime;
+
+      if (pedalPressed) {
+        attackTime = 0.01;
+        decayTime = 0.2;
+        sustainLevel = 0.6;
+        releaseTime = duration - attackTime - decayTime;
+      } else if (isHeld) {
+        attackTime = 0.01;
+        decayTime = 0.15;
+        sustainLevel = 0.7;
+        releaseTime = duration - attackTime - decayTime;
+      } else {
+        attackTime = 0.01;
+        decayTime = 0.1;
+        sustainLevel = 0.5;
+        releaseTime = duration - attackTime - decayTime;
+      }
       
       gainNode.gain.setValueAtTime(0, now);
       gainNode.gain.linearRampToValueAtTime(0.8, now + attackTime);
@@ -168,9 +186,54 @@ const PianoKeyboard = ({
       console.error('Помилка генерації звуку:', error);
       return null;
     }
-  }, []);
+  }, [pedalPressed]);
 
-  const playNote = useCallback(async (note, octave) => {
+  const stopNote = useCallback((note, octave, immediate = false) => {
+    const noteKey = `${note}${octave}`;
+    const noteAudio = oscillatorsRef.current.get(noteKey);
+    const timeout = timeoutsRef.current.get(noteKey);
+    
+    if (timeout) {
+      clearTimeout(timeout);
+      timeoutsRef.current.delete(noteKey);
+    }
+    
+    if (noteAudio && immediate && !pedalPressed) {
+      try {
+        const now = audioContextRef.current.currentTime;
+        
+        noteAudio.gainNode.gain.cancelScheduledValues(now);
+        noteAudio.gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        
+        setTimeout(() => {
+          try {
+            if (noteAudio.oscillator.playbackState !== 'finished') {
+              noteAudio.oscillator.stop();
+            }
+            noteAudio.harmonicNodes.forEach(node => {
+              if (node && node.oscillator && node.oscillator.playbackState !== 'finished') {
+                node.oscillator.stop();
+              }
+            });
+          } catch (error) { }
+          oscillatorsRef.current.delete(noteKey);
+        }, 50);
+        
+      } catch (error) {
+        console.warn('Помилка зупинки ноти:', error);
+      }
+    }
+    
+    setActiveKeys(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(noteKey);
+      return newSet;
+    });
+    
+    pressedKeysRef.current.delete(noteKey);
+  }, [pedalPressed]);
+
+  const playNote = useCallback(async (note, octave, isHeld = false) => {
     const noteKey = `${note}${octave}`;
     
     try {
@@ -207,15 +270,30 @@ const PianoKeyboard = ({
       }
       
       const frequency = getFrequency(note, octave);
-      const duration = 1;
       
-      const noteAudio = generatePianoTone(frequency, duration);
+      let duration;
+      if (pedalPressed) {
+        duration = 8;
+      } else if (isHeld) {
+        duration = 3.5;
+      } else {
+        duration = 1;
+      }
+      
+      const noteAudio = generatePianoTone(frequency, duration, isHeld);
       
       if (noteAudio) {
         oscillatorsRef.current.set(noteKey, noteAudio);
         
+        setActiveKeys(prev => new Set(prev).add(noteKey));
+
         const timeout = setTimeout(() => {
           oscillatorsRef.current.delete(noteKey);
+          setActiveKeys(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(noteKey);
+            return newSet;
+          });
           timeoutsRef.current.delete(noteKey);
         }, duration * 1000);
         
@@ -228,7 +306,24 @@ const PianoKeyboard = ({
     } catch (error) {
       console.error('Помилка відтворення ноти:', error);
     }
-  }, [getFrequency, generatePianoTone, onNotePlay]);
+  }, [pedalPressed, getFrequency, generatePianoTone, onNotePlay]);
+
+  const handleKeyPress = useCallback((note, octave) => {
+    const noteKey = `${note}${octave}`;
+    pressedKeysRef.current.add(noteKey);
+    playNote(note, octave, false);
+  }, [playNote]);
+
+  const handleKeyHold = useCallback((note, octave) => {
+    const noteKey = `${note}${octave}`;
+    pressedKeysRef.current.add(noteKey);
+    playNote(note, octave, true);
+  }, [playNote]);
+
+  const handleKeyRelease = useCallback((note, octave) => {
+    const noteKey = `${note}${octave}`;
+    pressedKeysRef.current.delete(noteKey);
+  }, [pedalPressed, stopNote]);
 
   const stopAllNotes = useCallback(() => {
     try {
@@ -259,11 +354,25 @@ const PianoKeyboard = ({
       });
       
       oscillatorsRef.current.clear();
+      setActiveKeys(new Set());
+      pressedKeysRef.current.clear();
       
     } catch (error) {
       console.error('Помилка зупинки всіх нот:', error);
     }
   }, []);
+
+  const togglePedal = useCallback(() => {
+    setPedalPressed(prev => {
+      const newPedalState = !prev;
+      
+      if (!newPedalState) {
+        stopAllNotes();
+      }
+      
+      return newPedalState;
+    });
+  }, [stopAllNotes]);
 
   const getKeyPosition = useCallback((note, octave) => {
     const { start, end } = getNormalizedRange();
@@ -328,17 +437,28 @@ const PianoKeyboard = ({
       
       availableWhiteKeys.forEach(note => {
         const noteKey = `${note}${octave}`;
+        const isActive = activeKeys.has(noteKey);
         const position = getKeyPosition(note, octave);
         
         keys.push(
           <button
             key={noteKey}
-            className="piano-key piano-key--white"
+            className={`piano-key piano-key--white ${isActive ? 'piano-key--active' : ''}`}
             style={{
               left: position.left,
               width: position.width
             }}
-            onClick={() => playNote(note, octave)}
+            onMouseDown={() => handleKeyPress(note, octave)}
+            onMouseUp={() => handleKeyRelease(note, octave)}
+            onMouseLeave={() => handleKeyRelease(note, octave)}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              handleKeyHold(note, octave);
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              handleKeyRelease(note, octave);
+            }}
           >
             {(settings.showNoteNames || settings.showOctaves) && (
               <span className="piano-key__label">
@@ -358,17 +478,28 @@ const PianoKeyboard = ({
       
       availableBlackKeys.forEach(note => {
         const noteKey = `${note}${octave}`;
+        const isActive = activeKeys.has(noteKey);
         const position = getKeyPosition(note, octave);
         
         keys.push(
           <button
             key={noteKey}
-            className="piano-key piano-key--black"
+            className={`piano-key piano-key--black ${isActive ? 'piano-key--active' : ''}`}
             style={{
               left: position.left,
               width: position.width
             }}
-            onClick={() => playNote(note, octave)}
+            onMouseDown={() => handleKeyPress(note, octave)}
+            onMouseUp={() => handleKeyRelease(note, octave)}
+            onMouseLeave={() => handleKeyRelease(note, octave)}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              handleKeyHold(note, octave);
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              handleKeyRelease(note, octave);
+            }}
           >
             {(settings.showNoteNames || settings.showOctaves) && (
               <span className="piano-key__label piano-key__label--black">
@@ -384,7 +515,26 @@ const PianoKeyboard = ({
     }
     
     return keys;
-  }, [getNormalizedRange, getNotesForOctave, settings, getKeyPosition, playNote]);
+  }, [getNormalizedRange, getNotesForOctave, activeKeys, settings, getKeyPosition, handleKeyPress, handleKeyHold, handleKeyRelease]);
+
+  const updateSettings = useCallback((newSettings) => {
+    setSettings(prev => {
+      const updatedSettings = { ...prev, ...newSettings };
+      
+      if (newSettings.startOctave !== undefined || newSettings.endOctave !== undefined) {
+        const normalizedStart = Math.min(updatedSettings.startOctave, updatedSettings.endOctave);
+        const normalizedEnd = Math.max(updatedSettings.startOctave, updatedSettings.endOctave);
+        
+        return {
+          ...updatedSettings,
+          startOctave: normalizedStart,
+          endOctave: normalizedEnd
+        };
+      }
+      
+      return updatedSettings;
+    });
+  }, []);
 
   const toggleExpanded = useCallback(() => {
     setIsExpanded(prev => !prev);
@@ -419,6 +569,32 @@ const PianoKeyboard = ({
             <div className="piano-keyboard__controls" onClick={(e) => e.stopPropagation()}>
               <button
                 className="piano-control-btn"
+                onClick={() => setShowSettings(!showSettings)}
+                title="Налаштування"
+              >
+                <Settings />
+              </button>
+              
+              <button
+                className={`piano-control-btn piano-control-btn--pedal ${pedalPressed ? 'piano-control-btn--pedal-active' : ''}`}
+                onClick={togglePedal}
+                title={pedalPressed ? "Відпустити педаль сустейну" : "Натиснути педаль сустейну"}
+              >
+                <Zap />
+              </button>
+              
+              {activeKeys.size > 0 && (
+                <button
+                  className="piano-control-btn piano-control-btn--stop"
+                  onClick={stopAllNotes}
+                  title="Зупинити всі ноти"
+                >
+                  <VolumeX />
+                </button>
+              )}
+              
+              <button
+                className="piano-control-btn"
                 onClick={() => setIsExpanded(false)}
                 title="Закрити клавіатуру"
               >
@@ -426,6 +602,60 @@ const PianoKeyboard = ({
               </button>
             </div>
           </div>
+
+          {showSettings && (
+            <div className="piano-keyboard__settings">
+              <div className="piano-setting">
+                <label className="piano-setting__label">
+                  <input
+                    type="checkbox"
+                    checked={settings.showNoteNames}
+                    onChange={(e) => updateSettings({ showNoteNames: e.target.checked })}
+                  />
+                  Показувати назви нот
+                </label>
+              </div>
+              
+              <div className="piano-setting">
+                <label className="piano-setting__label">
+                  <input
+                    type="checkbox"
+                    checked={settings.showOctaves}
+                    onChange={(e) => updateSettings({ showOctaves: e.target.checked })}
+                  />
+                  Показувати октави
+                </label>
+              </div>
+              
+              <div className="piano-setting">
+                <label className="piano-setting__label">
+                  Початкова октава:
+                  <select
+                    value={settings.startOctave}
+                    onChange={(e) => updateSettings({ startOctave: parseInt(e.target.value) })}
+                  >
+                    {octaveOrder.map((value) => (
+                      <option key={value} value={value}>{octaveNames[value]} ({value})</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              
+              <div className="piano-setting">
+                <label className="piano-setting__label">
+                  Кінцева октава:
+                  <select
+                    value={settings.endOctave}
+                    onChange={(e) => updateSettings({ endOctave: parseInt(e.target.value) })}
+                  >
+                    {octaveOrder.map((value) => (
+                      <option key={value} value={value}>{octaveNames[value]} ({value})</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+          )}
 
           <div className="piano-keyboard__keys">
             {renderKeys()}
