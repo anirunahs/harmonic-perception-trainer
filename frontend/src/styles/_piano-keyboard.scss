@@ -91,6 +91,21 @@
     gap: $space-2;
   }
 
+  &__settings {
+    padding: $space-4;
+    background: $gray-50;
+    border-bottom: 1px solid $border-color;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: $space-4;
+
+    @media (max-width: $breakpoint-md) {
+      grid-template-columns: 1fr;
+      gap: $space-3;
+      padding: $space-3;
+    }
+  }
+
   &__keys {
     position: relative;
     height: 160px;
@@ -189,6 +204,83 @@
     width: 1rem;
     height: 1rem;
   }
+
+  &--pedal {
+    &-active {
+      background: $success-color;
+      border-color: $success-color;
+      color: $white;
+      animation: pedalPulse 1.5s ease-in-out infinite;
+      
+      &:hover {
+        background: $recording-color;
+        border-color: $recording-color;
+      }
+    }
+  }
+
+  &--stop {
+    background: rgba($error-color, 0.8);
+    border-color: $error-color;
+    animation: pulseStop 1.5s ease-in-out infinite;
+
+    &:hover {
+      background: $error-color;
+    }
+  }
+}
+
+@keyframes pulseStop {
+  0%, 100% {
+    background: rgba($error-color, 0.8);
+  }
+  50% {
+    background: $error-color;
+  }
+}
+
+@keyframes pedalPulse {
+  0%, 100% {
+    background: $success-color;
+    box-shadow: 0 0 0 0 rgba($success-color, 0.7);
+  }
+  50% {
+    background: $recording-color;
+    box-shadow: 0 0 0 8px rgba($success-color, 0);
+  }
+}
+
+.piano-setting {
+  &__label {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    font-size: $font-size-sm;
+    font-weight: 500;
+    color: $text-primary;
+    cursor: pointer;
+
+    input[type="checkbox"] {
+      width: 1rem;
+      height: 1rem;
+      accent-color: $primary-color;
+    }
+
+    select {
+      padding: $space-1 $space-2;
+      border: 1px solid $border-color;
+      border-radius: $radius;
+      background: $white;
+      font-size: $font-size-sm;
+      margin-left: $space-2;
+      min-width: 120px;
+
+      &:focus {
+        outline: none;
+        border-color: $primary-color;
+      }
+    }
+  }
 }
 
 .piano-key {
@@ -209,7 +301,6 @@
     outline-offset: 2px;
   }
 
-  // Білі клавіші
   &--white {
     background: linear-gradient(to bottom, $white 0%, #f8f9fa 100%);
     border: 1px solid $gray-300;
@@ -220,9 +311,29 @@
     &:hover {
       background: linear-gradient(to bottom, #f8f9fa 0%, #e9ecef 100%);
     }
+
+    &:active,
+    &--active {
+      background: linear-gradient(to bottom, $primary-color 0%, $primary-hover 100%);
+      color: $white;
+      box-shadow: inset 0 3px 8px rgba($primary-color, 0.3);
+
+      .piano-key__label {
+        color: $white;
+      }
+    }
+
+    &.piano-key--sustaining {
+      background: linear-gradient(to bottom, $gray-600 0%, $gray-700 100%);
+      color: $text-primary;
+      box-shadow: inset 0 2px 6px rgba($gray-600, 0.3);
+
+      .piano-key__label {
+        color: $text-primary;
+      }
+    }
   }
 
-  // Чорні клавіші
   &--black {
     background: linear-gradient(to bottom, #1a1a1a 0%, #000000 100%);
     border: 1px solid #000;
@@ -234,9 +345,28 @@
     &:hover {
       background: linear-gradient(to bottom, #2d2d2d 0%, #1a1a1a 100%);
     }
+
+    &:active,
+    &--active {
+      background: linear-gradient(to bottom, $accent-color 0%, #0891b2 100%);
+      box-shadow: inset 0 3px 8px rgba($accent-color, 0.3);
+
+      .piano-key__label {
+        color: $white;
+      }
+    }
+
+    &.piano-key--sustaining {
+      background: linear-gradient(to bottom, $gray-500 0%, $gray-600 100%);
+      color: $white;
+      box-shadow: inset 0 2px 6px rgba($gray-500, 0.3);
+
+      .piano-key__label {
+        color: $white;
+      }
+    }
   }
 
-  // Підписи на клавішах
   &__label {
     font-size: $font-size-xs;
     font-weight: 600;
@@ -256,6 +386,19 @@
     &--black {
       color: rgba($white, 0.8);
     }
+
+    .piano-key--white.piano-key--active &,
+    .piano-key--black.piano-key--active & {
+      color: $white;
+    }
+
+    .piano-key--white.piano-key--sustaining & {
+      color: $text-primary;
+    }
+
+    .piano-key--black.piano-key--sustaining & {
+      color: $white;
+    }
   }
 
   &__octave {
@@ -270,7 +413,6 @@
   }
 }
 
-// Адаптивність
 @media (max-width: $breakpoint-md) {
   .piano-keyboard {
     &__header {
@@ -315,6 +457,10 @@
     &--collapsed {
       transform: translateY(calc(100% - 2rem));
     }
+
+    &__settings {
+      padding: $space-3;
+    }
   }
 
   .piano-control-btn {
@@ -324,6 +470,20 @@
     svg {
       width: 0.75rem;
       height: 0.75rem;
+    }
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .piano-key {
+    &--white:active,
+    &--white.piano-key--active {
+      background: linear-gradient(to bottom, $primary-light 0%, $primary-color 100%);
+    }
+    
+    &--black:active,
+    &--black.piano-key--active {
+      background: linear-gradient(to bottom, $accent-color 0%, #0e7490 100%);
     }
   }
 }
