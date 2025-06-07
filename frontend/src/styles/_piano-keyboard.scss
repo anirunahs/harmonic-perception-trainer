@@ -1,0 +1,329 @@
+@use "./variables" as *;
+
+.piano-keyboard {
+  background: $white;
+  border: 1px solid $border-color;
+  border-radius: $radius-lg $radius-lg 0 0;
+  box-shadow: $shadow-lg;
+  user-select: none;
+  overflow: hidden;
+
+  &--fixed {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: $z-modal;
+    max-height: 50vh;
+    
+    @media (max-width: $breakpoint-md) {
+      max-height: 40vh;
+    }
+  }
+
+  &--collapsed {
+    transform: translateY(calc(100% - 3rem));
+  }
+
+  &--expanded {
+    transform: translateY(0);
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $space-3 $space-4;
+    background: linear-gradient(135deg, $gray-800, $gray-700);
+    color: $white;
+    border-bottom: 1px solid $border-color;
+    cursor: pointer;
+    min-height: 3rem;
+
+    @media (max-width: $breakpoint-md) {
+      padding: $space-2 $space-3;
+    }
+  }
+
+  &__info {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+
+    @media (max-width: $breakpoint-md) {
+      gap: $space-2;
+    }
+  }
+
+  &__icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+
+    @media (max-width: $breakpoint-md) {
+      width: 1rem;
+      height: 1rem;
+    }
+  }
+
+  &__title {
+    font-weight: 600;
+    font-size: $font-size-base;
+
+    @media (max-width: $breakpoint-md) {
+      font-size: $font-size-sm;
+    }
+  }
+
+  &__range {
+    font-size: $font-size-sm;
+    opacity: 0.8;
+
+    @media (max-width: $breakpoint-md) {
+      font-size: $font-size-xs;
+      display: none;
+    }
+  }
+
+  &__controls {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+  }
+
+  &__keys {
+    position: relative;
+    height: 160px;
+    background: $white;
+    overflow-x: auto;
+    overflow-y: hidden;
+
+    @media (max-width: $breakpoint-md) {
+      height: 140px;
+    }
+
+    @media (max-width: $breakpoint-sm) {
+      height: 120px;
+      min-width: 600px;
+    }
+  }
+
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.piano-keyboard-toggle {
+  &--fixed {
+    position: fixed;
+    bottom: $space-4;
+    right: $space-4;
+    z-index: $z-modal;
+  }
+}
+
+.piano-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-3 $space-4;
+  background: $primary-color;
+  color: $white;
+  border: none;
+  border-radius: $radius-lg;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all $transition-fast;
+  box-shadow: $shadow-lg;
+  font-size: $font-size-sm;
+
+  &:hover {
+    background: $primary-hover;
+    transform: translateY(-2px);
+    box-shadow: $shadow-lg, 0 10px 20px rgba($primary-color, 0.3);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  span {
+    @media (max-width: $breakpoint-sm) {
+      display: none;
+    }
+  }
+}
+
+.piano-control-btn {
+  padding: $space-2;
+  border: 1px solid rgba($white, 0.2);
+  border-radius: $radius;
+  background: rgba($white, 0.1);
+  color: $white;
+  cursor: pointer;
+  transition: all $transition-fast;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+
+  &:hover {
+    background: rgba($white, 0.2);
+    border-color: rgba($white, 0.3);
+  }
+
+  &:active {
+    transform: translateY(1px);
+  }
+
+  svg {
+    width: 1rem;
+    height: 1rem;
+  }
+}
+
+.piano-key {
+  position: absolute;
+  border: none;
+  cursor: pointer;
+  transition: all 50ms ease-out;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: $space-2;
+  font-family: inherit;
+  user-select: none;
+  outline: none;
+
+  &:focus-visible {
+    outline: 2px solid $accent-color;
+    outline-offset: 2px;
+  }
+
+  // Білі клавіші
+  &--white {
+    background: linear-gradient(to bottom, $white 0%, #f8f9fa 100%);
+    border: 1px solid $gray-300;
+    border-radius: 0 0 $radius $radius;
+    height: 100%;
+    z-index: 1;
+
+    &:hover {
+      background: linear-gradient(to bottom, #f8f9fa 0%, #e9ecef 100%);
+    }
+  }
+
+  // Чорні клавіші
+  &--black {
+    background: linear-gradient(to bottom, #1a1a1a 0%, #000000 100%);
+    border: 1px solid #000;
+    border-radius: 0 0 $radius $radius;
+    height: 65%;
+    z-index: 2;
+    color: $white;
+
+    &:hover {
+      background: linear-gradient(to bottom, #2d2d2d 0%, #1a1a1a 100%);
+    }
+  }
+
+  // Підписи на клавішах
+  &__label {
+    font-size: $font-size-xs;
+    font-weight: 600;
+    text-align: center;
+    line-height: 1;
+    pointer-events: none;
+    opacity: 0.7;
+
+    @media (max-width: $breakpoint-md) {
+      font-size: 0.625rem;
+    }
+
+    @media (max-width: $breakpoint-sm) {
+      font-size: 0.5rem;
+    }
+
+    &--black {
+      color: rgba($white, 0.8);
+    }
+  }
+
+  &__octave {
+    display: block;
+    font-size: 0.5rem;
+    margin-top: 2px;
+    opacity: 0.6;
+
+    @media (max-width: $breakpoint-sm) {
+      display: none;
+    }
+  }
+}
+
+// Адаптивність
+@media (max-width: $breakpoint-md) {
+  .piano-keyboard {
+    &__header {
+      min-height: 2.5rem;
+    }
+
+    &__title {
+      font-size: $font-size-sm;
+    }
+
+    &__range {
+      font-size: $font-size-xs;
+    }
+
+    &--collapsed {
+      transform: translateY(calc(100% - 2.5rem));
+    }
+  }
+
+  .piano-control-btn {
+    min-width: 1.75rem;
+    height: 1.75rem;
+
+    svg {
+      width: 0.875rem;
+      height: 0.875rem;
+    }
+  }
+}
+
+@media (max-width: $breakpoint-sm) {
+  .piano-keyboard {
+    &__header {
+      padding: $space-2 $space-3;
+      min-height: 2rem;
+    }
+
+    &__title {
+      font-size: $font-size-sm;
+    }
+
+    &--collapsed {
+      transform: translateY(calc(100% - 2rem));
+    }
+  }
+
+  .piano-control-btn {
+    min-width: 1.5rem;
+    height: 1.5rem;
+
+    svg {
+      width: 0.75rem;
+      height: 0.75rem;
+    }
+  }
+}
