@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Piano, Settings, Zap, VolumeX, ChevronDown } from "lucide-react";
+import * as Tone from "tone";
 
 const PianoKeyboard = ({ 
   isFixed = true, 
@@ -20,66 +21,102 @@ const PianoKeyboard = ({
     endOctave: Math.max(startOctave, endOctave)
   });
     
-  const audioContextRef = useRef(null);
-  const oscillatorsRef = useRef(new Map());
-  const timeoutsRef = useRef(new Map());
+  const samplerRef = useRef(null);
+  const activeSoundsRef = useRef(new Map());
+  const sustainedNotesRef = useRef(new Set());
   const pressedKeysRef = useRef(new Set());
+  const isInitializedRef = useRef(false);
 
   const octaveNames = {
-    '-1': 'Субконтр',
-    '0': 'Контр',
-    '1': 'Велика',
-    '2': 'Мала', 
-    '3': 'Перша',
-    '4': 'Друга',
-    '5': 'Третя',
-    '6': 'Четверта',
-    '7': "П'ята"
+    '0': 'Субконтр',
+    '1': 'Контр',
+    '2': 'Велика',
+    '3': 'Мала', 
+    '4': 'Перша',
+    '5': 'Друга',
+    '6': 'Третя',
+    '7': 'Четверта',
+    '8': "П'ята"
   };
 
-  const octaveOrder = [-1, 0, 1, 2, 3, 4, 5, 6, 7];
+  const octaveOrder = [0, 1, 2, 3, 4, 5, 6, 7, 8];
   const whiteKeys = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
   const blackKeys = ['C#', 'D#', 'F#', 'G#', 'A#'];
 
-  const getNotesForOctave = useCallback((octave, isBlack = false) => {
-    if (octave === -1) {
-      return isBlack ? ['A#'] : ['A', 'B'];
-    } else if (octave === 7) {
-      return isBlack ? [] : ['C'];
-    }
-    return isBlack ? blackKeys : whiteKeys;
-  }, []);
-
-  const getNormalizedRange = useCallback(() => {
-    return { 
-      start: Math.min(settings.startOctave, settings.endOctave), 
-      end: Math.max(settings.startOctave, settings.endOctave) 
-    };
-  }, [settings.startOctave, settings.endOctave]);
-
-  const getFrequency = useCallback((note, octave) => {
-    const noteToSemitone = {
-      'C': -9, 'C#': -8, 'D': -7, 'D#': -6, 'E': -5, 'F': -4,
-      'F#': -3, 'G': -2, 'G#': -1, 'A': 0, 'A#': 1, 'B': 2
-    };
-    
-    const semitonesFromA4 = (octave - 4) * 12 + noteToSemitone[note];
-    return 440 * Math.pow(2, semitonesFromA4 / 12);
-  }, []);
-
   useEffect(() => {
-    const initAudio = () => {
-      if (!audioContextRef.current) {
-        try {
-          audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-        } catch (error) {
-          console.error('Помилка створення AudioContext:', error);
-        }
+    const initializeTone = async () => {
+      if (isInitializedRef.current) return;
+      
+      try {
+        const baseNotes = {
+          'A0': 'https://tonejs.github.io/audio/salamander/A0.mp3',
+          'C1': 'https://tonejs.github.io/audio/salamander/C1.mp3',
+          'D#1': 'https://tonejs.github.io/audio/salamander/Ds1.mp3',
+          'F#1': 'https://tonejs.github.io/audio/salamander/Fs1.mp3',
+          'A1': 'https://tonejs.github.io/audio/salamander/A1.mp3',
+          'C2': 'https://tonejs.github.io/audio/salamander/C2.mp3',
+          'D#2': 'https://tonejs.github.io/audio/salamander/Ds2.mp3',
+          'F#2': 'https://tonejs.github.io/audio/salamander/Fs2.mp3',
+          'A2': 'https://tonejs.github.io/audio/salamander/A2.mp3',
+          'C3': 'https://tonejs.github.io/audio/salamander/C3.mp3',
+          'D#3': 'https://tonejs.github.io/audio/salamander/Ds3.mp3',
+          'F#3': 'https://tonejs.github.io/audio/salamander/Fs3.mp3',
+          'A3': 'https://tonejs.github.io/audio/salamander/A3.mp3',
+          'C4': 'https://tonejs.github.io/audio/salamander/C4.mp3',
+          'D#4': 'https://tonejs.github.io/audio/salamander/Ds4.mp3',
+          'F#4': 'https://tonejs.github.io/audio/salamander/Fs4.mp3',
+          'A4': 'https://tonejs.github.io/audio/salamander/A4.mp3',
+          'C5': 'https://tonejs.github.io/audio/salamander/C5.mp3',
+          'D#5': 'https://tonejs.github.io/audio/salamander/Ds5.mp3',
+          'F#5': 'https://tonejs.github.io/audio/salamander/Fs5.mp3',
+          'A5': 'https://tonejs.github.io/audio/salamander/A5.mp3',
+          'C6': 'https://tonejs.github.io/audio/salamander/C6.mp3',
+          'D#6': 'https://tonejs.github.io/audio/salamander/Ds6.mp3',
+          'F#6': 'https://tonejs.github.io/audio/salamander/Fs6.mp3',
+          'A6': 'https://tonejs.github.io/audio/salamander/A6.mp3',
+          'C7': 'https://tonejs.github.io/audio/salamander/C7.mp3',
+          'D#7': 'https://tonejs.github.io/audio/salamander/Ds7.mp3',
+          'F#7': 'https://tonejs.github.io/audio/salamander/Fs7.mp3',
+          'A7': 'https://tonejs.github.io/audio/salamander/A7.mp3',
+          'C8': 'https://tonejs.github.io/audio/salamander/C8.mp3'
+        };
+
+        samplerRef.current = new Tone.Sampler({
+          urls: baseNotes,
+          release: 1,
+          baseUrl: ""
+        }).toDestination();
+
+        await Tone.loaded();
+        isInitializedRef.current = true;
+        console.log('Piano sampler initialized successfully');
+        
+      } catch (error) {
+        console.error('Error initializing Tone.js piano:', error);
+        
+        samplerRef.current = new Tone.PolySynth(Tone.Synth, {
+          oscillator: {
+            type: "triangle",
+          },
+          envelope: {
+            attack: 0.01,
+            decay: 0.2,
+            sustain: 0.5,
+            release: 1.5,
+          },
+        }).toDestination();
+        
+        isInitializedRef.current = true;
+        console.log('Fallback synth initialized');
       }
     };
 
-    const handleFirstInteraction = () => {
-      initAudio();
+    const handleFirstInteraction = async () => {
+      if (Tone.context.state !== 'running') {
+        await Tone.start();
+        console.log('Tone.js context started');
+      }
+      await initializeTone();
       document.removeEventListener('click', handleFirstInteraction);
       document.removeEventListener('touchstart', handleFirstInteraction);
     };
@@ -93,134 +130,55 @@ const PianoKeyboard = ({
       
       stopAllNotes();
       
-      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-        audioContextRef.current.close();
+      if (samplerRef.current) {
+        samplerRef.current.dispose();
       }
     };
   }, []);
 
-  const generatePianoTone = useCallback((frequency, duration, isHeld = false) => {
-    if (!audioContextRef.current || audioContextRef.current.state !== 'running') {
-      return null;
+  const getNotesForOctave = useCallback((octave, isBlack = false) => {
+    if (octave === 0) {
+      return isBlack ? ['A#'] : ['A', 'B'];
+    } else if (octave === 8) {
+      return isBlack ? [] : ['C'];
     }
+    return isBlack ? blackKeys : whiteKeys;
+  }, []);
 
-    try {
-      const audioContext = audioContextRef.current;
-      const gainNode = audioContext.createGain();
-      
-      const oscillator = audioContext.createOscillator();
-      oscillator.type = 'triangle';
-      oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
-      
-      const harmonics = [
-        { freq: frequency * 2, gain: 0.3, type: 'sine' },
-        { freq: frequency * 3, gain: 0.15, type: 'triangle' },
-        { freq: frequency * 4, gain: 0.1, type: 'sine' },
-        { freq: frequency * 5, gain: 0.06, type: 'triangle' }
-      ];
-      
-      const harmonicNodes = [];
-      
-      harmonics.forEach(harmonic => {
-        try {
-          const osc = audioContext.createOscillator();
-          const harmonicGain = audioContext.createGain();
-          
-          osc.type = harmonic.type;
-          osc.frequency.setValueAtTime(harmonic.freq, audioContext.currentTime);
-          harmonicGain.gain.setValueAtTime(harmonic.gain, audioContext.currentTime);
-          
-          osc.connect(harmonicGain);
-          harmonicGain.connect(gainNode);
-          osc.start();
-          
-          harmonicNodes.push({ oscillator: osc, gain: harmonicGain });
-        } catch (error) {
-          console.warn('Помилка створення гармоніки:', error);
-        }
-      });
-
-      const now = audioContext.currentTime;
-      let attackTime, decayTime, sustainLevel, releaseTime;
-
-      if (pedalPressed) {
-        attackTime = 0.01;
-        decayTime = 0.2;
-        sustainLevel = 0.6;
-        releaseTime = duration - attackTime - decayTime;
-      } else if (isHeld) {
-        attackTime = 0.01;
-        decayTime = 0.15;
-        sustainLevel = 0.7;
-        releaseTime = duration - attackTime - decayTime;
-      } else {
-        attackTime = 0.01;
-        decayTime = 0.1;
-        sustainLevel = 0.5;
-        releaseTime = duration - attackTime - decayTime;
-      }
-      
-      gainNode.gain.setValueAtTime(0, now);
-      gainNode.gain.linearRampToValueAtTime(0.8, now + attackTime);
-      gainNode.gain.exponentialRampToValueAtTime(sustainLevel, now + attackTime + decayTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
-      
-      gainNode.connect(audioContext.destination);
-      oscillator.connect(gainNode);
-      oscillator.start();
-      oscillator.stop(now + duration);
-      
-      harmonicNodes.forEach(node => {
-        node.oscillator.stop(now + duration);
-      });
-      
-      return { 
-        oscillator, 
-        harmonicNodes, 
-        gainNode,
-        duration,
-        startTime: now
-      };
-      
-    } catch (error) {
-      console.error('Помилка генерації звуку:', error);
-      return null;
-    }
-  }, [pedalPressed]);
+  const getNormalizedRange = useCallback(() => {
+    return { 
+      start: Math.min(settings.startOctave, settings.endOctave), 
+      end: Math.max(settings.startOctave, settings.endOctave) 
+    };
+  }, [settings.startOctave, settings.endOctave]);
 
   const stopNote = useCallback((note, octave, immediate = false) => {
     const noteKey = `${note}${octave}`;
-    const noteAudio = oscillatorsRef.current.get(noteKey);
-    const timeout = timeoutsRef.current.get(noteKey);
+    const activeSound = activeSoundsRef.current.get(noteKey);
     
-    if (timeout) {
-      clearTimeout(timeout);
-      timeoutsRef.current.delete(noteKey);
-    }
-    
-    if (noteAudio && immediate && !pedalPressed) {
-      try {
-        const now = audioContextRef.current.currentTime;
+    if (activeSound) {
+      if (immediate && !pedalPressed) {
+        try {
+          if (samplerRef.current && samplerRef.current.triggerRelease) {
+            samplerRef.current.triggerRelease(noteKey, Tone.now());
+          }
+        } catch (error) {
+          console.warn('Error stopping note:', error);
+        }
         
-        noteAudio.gainNode.gain.cancelScheduledValues(now);
-        noteAudio.gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-        
-        setTimeout(() => {
-          try {
-            if (noteAudio.oscillator.playbackState !== 'finished') {
-              noteAudio.oscillator.stop();
-            }
-            noteAudio.harmonicNodes.forEach(node => {
-              if (node && node.oscillator && node.oscillator.playbackState !== 'finished') {
-                node.oscillator.stop();
-              }
-            });
-          } catch (error) { }
-          oscillatorsRef.current.delete(noteKey);
-        }, 50);
-        
-      } catch (error) {
-        console.warn('Помилка зупинки ноти:', error);
+        clearTimeout(activeSound.timeout);
+        activeSoundsRef.current.delete(noteKey);
+        sustainedNotesRef.current.delete(noteKey);
+      } else if (!pedalPressed) {
+        try {
+          if (samplerRef.current && samplerRef.current.triggerRelease) {
+            samplerRef.current.triggerRelease(noteKey, Tone.now());
+          }
+        } catch (error) {
+          console.warn('Error releasing note:', error);
+        }
+      } else {
+        sustainedNotesRef.current.add(noteKey);
       }
     }
     
@@ -236,77 +194,72 @@ const PianoKeyboard = ({
   const playNote = useCallback(async (note, octave, isHeld = false) => {
     const noteKey = `${note}${octave}`;
     
+    if (!isInitializedRef.current || !samplerRef.current) {
+      console.warn('Piano not initialized yet');
+      return;
+    }
+    
     try {
-      if (!audioContextRef.current) {
-        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      
-      if (audioContextRef.current.state === 'suspended') {
-        await audioContextRef.current.resume();
-      }
-      
-      const existingAudio = oscillatorsRef.current.get(noteKey);
-      if (existingAudio) {
-        try {
-          const now = audioContextRef.current.currentTime;
-          existingAudio.gainNode.gain.cancelScheduledValues(now);
-          existingAudio.gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.01);
-          
-          setTimeout(() => {
-            try {
-              if (existingAudio.oscillator.playbackState !== 'finished') {
-                existingAudio.oscillator.stop();
-              }
-              existingAudio.harmonicNodes.forEach(node => {
-                if (node && node.oscillator && node.oscillator.playbackState !== 'finished') {
-                  node.oscillator.stop();
-                }
-              });
-            } catch (error) { }
-          }, 10);
-        } catch (error) {
-          console.warn('Помилка плавного переривання:', error);
+      const existingSound = activeSoundsRef.current.get(noteKey);
+      if (existingSound) {
+        clearTimeout(existingSound.timeout);
+        if (samplerRef.current.triggerRelease) {
+          samplerRef.current.triggerRelease(noteKey, Tone.now());
         }
       }
       
-      const frequency = getFrequency(note, octave);
-      
       let duration;
       if (pedalPressed) {
-        duration = 8;
+        duration = 7;
       } else if (isHeld) {
         duration = 3.5;
       } else {
         duration = 1;
       }
       
-      const noteAudio = generatePianoTone(frequency, duration, isHeld);
+      if (samplerRef.current.triggerAttack) {
+        samplerRef.current.triggerAttack(noteKey, Tone.now());
+      } else if (samplerRef.current.triggerAttackRelease) {
+        samplerRef.current.triggerAttackRelease(noteKey, duration, Tone.now());
+      }
       
-      if (noteAudio) {
-        oscillatorsRef.current.set(noteKey, noteAudio);
-        
-        setActiveKeys(prev => new Set(prev).add(noteKey));
+      setActiveKeys(prev => new Set(prev).add(noteKey));
 
-        const timeout = setTimeout(() => {
-          oscillatorsRef.current.delete(noteKey);
+      const timeout = setTimeout(() => {
+        if (!pedalPressed || !sustainedNotesRef.current.has(noteKey)) {
+          try {
+            if (samplerRef.current && samplerRef.current.triggerRelease) {
+              samplerRef.current.triggerRelease(noteKey, Tone.now());
+            }
+          } catch (error) {
+            console.warn('Error in timeout release:', error);
+          }
+          
+          activeSoundsRef.current.delete(noteKey);
           setActiveKeys(prev => {
             const newSet = new Set(prev);
             newSet.delete(noteKey);
             return newSet;
           });
-          timeoutsRef.current.delete(noteKey);
-        }, duration * 1000);
-        
-        timeoutsRef.current.set(noteKey, timeout);
-        
-        if (onNotePlay) {
-          onNotePlay(note, octave, frequency);
         }
+      }, duration * 1000);
+      
+      activeSoundsRef.current.set(noteKey, { timeout, startTime: Tone.now() });
+      
+      if (onNotePlay) {
+        const noteToSemitone = {
+          'C': -9, 'C#': -8, 'D': -7, 'D#': -6, 'E': -5, 'F': -4,
+          'F#': -3, 'G': -2, 'G#': -1, 'A': 0, 'A#': 1, 'B': 2
+        };
+        const semitonesFromA4 = (octave - 4) * 12 + noteToSemitone[note];
+        const frequency = 440 * Math.pow(2, semitonesFromA4 / 12);
+        onNotePlay(note, octave, frequency);
       }
+      
     } catch (error) {
-      console.error('Помилка відтворення ноти:', error);
+      console.error('Error playing note:', error);
     }
-  }, [pedalPressed, getFrequency, generatePianoTone, onNotePlay]);
+  }, [pedalPressed, onNotePlay]);
 
   const handleKeyPress = useCallback((note, octave) => {
     const noteKey = `${note}${octave}`;
@@ -323,42 +276,39 @@ const PianoKeyboard = ({
   const handleKeyRelease = useCallback((note, octave) => {
     const noteKey = `${note}${octave}`;
     pressedKeysRef.current.delete(noteKey);
+    
+    if (!pedalPressed) {
+      stopNote(note, octave, false);
+    }
   }, [pedalPressed, stopNote]);
 
   const stopAllNotes = useCallback(() => {
     try {
-      timeoutsRef.current.forEach(timeout => clearTimeout(timeout));
-      timeoutsRef.current.clear();
-      
-      oscillatorsRef.current.forEach((noteAudio, noteKey) => {
-        try {
-          const now = audioContextRef.current?.currentTime || 0;
-          noteAudio.gainNode.gain.cancelScheduledValues(now);
-          noteAudio.gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-          
-          setTimeout(() => {
-            try {
-              if (noteAudio.oscillator.playbackState !== 'finished') {
-                noteAudio.oscillator.stop();
-              }
-              noteAudio.harmonicNodes.forEach(node => {
-                if (node && node.oscillator && node.oscillator.playbackState !== 'finished') {
-                  node.oscillator.stop();
-                }
-              });
-            } catch (error) { }
-          }, 50);
-        } catch (error) {
-          console.warn('Помилка зупинки ноти:', error);
-        }
+      activeSoundsRef.current.forEach((sound) => {
+        clearTimeout(sound.timeout);
       });
       
-      oscillatorsRef.current.clear();
+      if (samplerRef.current) {
+        if (samplerRef.current.releaseAll) {
+          samplerRef.current.releaseAll();
+        } else if (samplerRef.current.triggerRelease) {
+          activeSoundsRef.current.forEach((_, noteKey) => {
+            try {
+              samplerRef.current.triggerRelease(noteKey, Tone.now());
+            } catch (error) {
+              console.warn('Error releasing note:', noteKey, error);
+            }
+          });
+        }
+      }
+      
+      activeSoundsRef.current.clear();
+      sustainedNotesRef.current.clear();
       setActiveKeys(new Set());
       pressedKeysRef.current.clear();
       
     } catch (error) {
-      console.error('Помилка зупинки всіх нот:', error);
+      console.error('Error stopping all notes:', error);
     }
   }, []);
 
@@ -415,9 +365,9 @@ const PianoKeyboard = ({
       }
       
       let intraOctaveOffset = 0;
-      if (octave === -1 && note === 'A#') {
+      if (octave === 0 && note === 'A#') {
         intraOctaveOffset = 0.7;
-      } else if (octave !== -1 && octave !== 7) {
+      } else if (octave !== 0 && octave !== 8) {
         intraOctaveOffset = blackKeyPositions[note] || 0;
       }
       
