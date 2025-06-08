@@ -387,11 +387,6 @@
       color: rgba($white, 0.8);
     }
 
-    .piano-key--white.piano-key--active &,
-    .piano-key--black.piano-key--active & {
-      color: $white;
-    }
-
     .piano-key--white.piano-key--sustaining & {
       color: $text-primary;
     }
