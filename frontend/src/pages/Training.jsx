@@ -3,6 +3,7 @@ import Header from "../components/Header";
 import TrainingSettings from "../components/training/TrainingSettings";
 import GeneratedIntervals from "../components/training/GeneratedIntervals";
 import ErrorMessage from "../components/training/ErrorMessage";
+import PianoKeyboard from "../components/training/PianoKeyboard";
 import { useAudioPlayer } from "../hooks/useAudioPlayer";
 import api from "../api";
 
@@ -87,6 +88,10 @@ const Training = () => {
     playAudio(intervalId, playType, generatedIntervals);
   };
 
+  const handlePianoNotePlay = (note, octave, frequency) => {
+    console.log(`Piano note played: ${note}${octave} (${frequency.toFixed(2)}Hz)`);
+  };
+
   return (
     <>
       <Header />
@@ -130,6 +135,15 @@ const Training = () => {
           </div>
         </div>
       </div>
+      
+      <PianoKeyboard 
+        isFixed={true}
+        showNoteNames={true}
+        showOctaves={true}
+        startOctave={2}
+        endOctave={4}
+        onNotePlay={handlePianoNotePlay}
+      />
     </>
   );
 };
