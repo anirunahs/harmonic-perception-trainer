@@ -5,7 +5,10 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.decorators import authentication_classes, permission_classes
-from .serializers import UserSerializer
+from .models import UserProfile, TestSession, TestQuestion, Achievement, UserAchievement
+from .serializers import (UserSerializer, UserProfileSerializer, TestSessionSerializer, 
+    CreateTestSessionSerializer, SubmitAnswerSerializer, VocalRangeSetupSerializer,
+    AchievementSerializer, UserAchievementSerializer)
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.conf import settings
 from django.http import FileResponse, Http404, HttpResponse
@@ -15,11 +18,18 @@ import uuid
 import numpy as np
 from scipy.io import wavfile
 import shutil
+import base64
+import io
+import random
+from scipy import signal
+from datetime import datetime
+
 
 class CreateUserView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [AllowAny]
+
 
 class GenerateIntervalsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -202,7 +212,9 @@ class GenerateIntervalsView(APIView):
             return Response(
                 {'error': f'Помилка генерації: {str(e)}'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )  
+            )
+
+
 class SecureAudioView(APIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
@@ -272,7 +284,8 @@ class SecureAudioView(APIView):
         except Exception as e:
             print(f"Error serving file: {e}")
             return HttpResponse("Помилка при видачі файлу", status=500)
-        
+
+
 class ClearUserAudioView(APIView):
     permission_classes = [IsAuthenticated]
     
@@ -295,3 +308,59 @@ class ClearUserAudioView(APIView):
                 {'error': f'Помилка видалення файлів: {str(e)}'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class UserProfileView(generics.RetrieveUpdateAPIView):
+    serializer_class = UserProfileSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_object(self):
+        profile, created = UserProfile.objects.get_or_create(user=self.request.user)
+        return profile
+
+
+class VocalRangeSetupView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        serializer = VocalRangeSetupSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        data = serializer.validated_data
+        profile, created = UserProfile.objects.get_or_create(user=request.user)
+        
+        profile.vocal_range_min_frequency = data['min_frequency']
+        profile.vocal_range_max_frequency = data['max_frequency']
+        profile.vocal_range_min_note = data['min_note']
+        profile.vocal_range_max_note = data['max_note']
+        profile.save()
+        
+        return Response({'message': 'Вокальний діапазон збережено'})
+
+
+class TestSessionListView(generics.ListAPIView):
+    serializer_class = TestSessionSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        return TestSession.objects.filter(
+            user=self.request.user,
+            is_completed=True
+        ).order_by('-completed_at')
+
+
+class TestSessionDetailView(generics.RetrieveAPIView):
+    serializer_class = TestSessionSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        return TestSession.objects.filter(user=self.request.user)
+
+
+class UserAchievementsView(generics.ListAPIView):
+    serializer_class = UserAchievementSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        return UserAchievement.objects.filter(user=self.request.user).order_by('-earned_at')
