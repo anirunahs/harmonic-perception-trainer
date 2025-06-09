@@ -364,3 +364,219 @@ class UserAchievementsView(generics.ListAPIView):
     
     def get_queryset(self):
         return UserAchievement.objects.filter(user=self.request.user).order_by('-earned_at')
+
+
+class CreateTestSessionView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        serializer = CreateTestSessionSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        data = serializer.validated_data
+        test_type = data['test_type']
+        total_questions = data['total_questions']
+        
+        session = TestSession.objects.create(
+            user=request.user,
+            test_type=test_type,
+            total_questions=total_questions
+        )
+        
+        try:
+            if test_type == 'interval_recognition':
+                self._create_interval_questions(session, data)
+            elif test_type == 'note_reproduction':
+                self._create_note_questions(session, data)
+                
+            session_serializer = TestSessionSerializer(session)
+            return Response(session_serializer.data, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            session.delete()
+            return Response(
+                {'error': f'Помилка створення тесту: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def _create_interval_questions(self, session, data):
+        """Створення питань для тесту розпізнавання інтервалів"""
+        available_intervals = data.get('intervals', [
+            'minor_second', 'major_second', 'minor_third', 'major_third',
+            'perfect_fourth', 'tritone', 'perfect_fifth', 'minor_sixth',
+            'major_sixth', 'minor_seventh', 'major_seventh', 'perfect_octave'
+        ])
+        
+        if not available_intervals:
+            available_intervals = ['major_third', 'perfect_fourth', 'perfect_fifth']
+        
+        base_notes = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
+        octaves = [3, 4, 5]
+        
+        for i in range(session.total_questions):
+            interval_type = random.choice(available_intervals)
+            base_note = random.choice(base_notes)
+            octave = random.choice(octaves)
+            base_note_with_octave = f"{base_note}{octave}"
+            
+            target_note = self._calculate_target_note(base_note, interval_type)
+            target_note_with_octave = f"{target_note}{octave}"
+            
+            TestQuestion.objects.create(
+                session=session,
+                question_number=i + 1,
+                interval_type=interval_type,
+                base_note=base_note_with_octave,
+                target_note=target_note_with_octave,
+                harmonic_audio_url=f"/api/testing/audio/placeholder_harmonic_{i+1}.wav",
+                melodic_audio_url=f"/api/testing/audio/placeholder_melodic_{i+1}.wav"
+            )
+    
+    def _create_note_questions(self, session, data):
+        """Створення питань для тесту відтворення нот"""
+        user_profile, created = UserProfile.objects.get_or_create(user=session.user)
+        
+        if user_profile.vocal_range_min_frequency and user_profile.vocal_range_max_frequency:
+            min_freq = user_profile.vocal_range_min_frequency
+            max_freq = user_profile.vocal_range_max_frequency
+        else:
+            min_freq = 130.81  # C3
+            max_freq = 523.25  # C5
+        
+        for i in range(session.total_questions):
+            target_frequency = self._generate_random_frequency(min_freq, max_freq)
+            target_note = self._frequency_to_note(target_frequency)
+            
+            TestQuestion.objects.create(
+                session=session,
+                question_number=i + 1,
+                target_frequency=target_frequency,
+                target_note_name=target_note,
+                reference_audio_url=f"/api/testing/audio/placeholder_note_{i+1}.wav",
+                frequency_tolerance=20.0
+            )
+    
+    def _calculate_target_note(self, base_note, interval_type):
+        """Розрахунок цільової ноти на основі базової та інтервалу"""
+        notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+        intervals_semitones = {
+            'minor_second': 1, 'major_second': 2, 'minor_third': 3, 'major_third': 4,
+            'perfect_fourth': 5, 'tritone': 6, 'perfect_fifth': 7, 'minor_sixth': 8,
+            'major_sixth': 9, 'minor_seventh': 10, 'major_seventh': 11, 'perfect_octave': 12
+        }
+        
+        base_index = notes.index(base_note)
+        semitones = intervals_semitones[interval_type]
+        target_index = (base_index + semitones) % 12
+        
+        return notes[target_index]
+    
+    def _generate_random_frequency(self, min_freq, max_freq):
+        """Генерація випадкової частоти, яка відповідає музичній ноті"""
+        frequencies = []
+        current_freq = min_freq
+        
+        while current_freq <= max_freq:
+            frequencies.append(current_freq)
+            current_freq *= 2**(1/12)
+        
+        return random.choice(frequencies)
+    
+    def _frequency_to_note(self, frequency):
+        """Перетворення частоти в назву ноти"""
+        A4 = 440.0
+        notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+        
+        semitones_from_a4 = round(12 * np.log2(frequency / A4))
+        
+        octave = 4 + semitones_from_a4 // 12
+        note_index = (9 + semitones_from_a4) % 12  # A=9 в масиві нот
+        
+        return f"{notes[note_index]}{octave}"
+
+
+class SubmitAnswerView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        serializer = SubmitAnswerSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        data = serializer.validated_data
+        question_id = data['question_id']
+        
+        try:
+            question = TestQuestion.objects.get(
+                id=question_id,
+                session__user=request.user,
+                session__is_completed=False
+            )
+        except TestQuestion.DoesNotExist:
+            return Response(
+                {'error': 'Питання не знайдено'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        if question.session.test_type == 'interval_recognition':
+            question.user_answer = data.get('answer')
+            question.is_correct = (question.user_answer == question.interval_type)
+        
+        elif question.session.test_type == 'note_reproduction':
+            recorded_freq = data.get('recorded_frequency')
+            question.is_correct = question.check_frequency_answer(recorded_freq)
+        
+        question.answered_at = datetime.now()
+        question.save()
+        
+        session = question.session
+        answered_questions = session.questions.filter(answered_at__isnull=False).count()
+        
+        if answered_questions == session.total_questions:
+            self._complete_session(session)
+        
+        return Response({
+            'is_correct': question.is_correct,
+            'session_completed': session.is_completed
+        })
+    
+    def _complete_session(self, session):
+        """Завершення сесії тестування"""
+        session.correct_answers = session.questions.filter(is_correct=True).count()
+        session.calculate_accuracy()
+        session.calculate_experience()
+        session.completed_at = datetime.now()
+        session.is_completed = True
+        session.save()
+        
+        profile, created = UserProfile.objects.get_or_create(user=session.user)
+        level_up = profile.add_experience(session.experience_gained)
+        
+        self._check_achievements(session.user, session, level_up)
+    
+    def _check_achievements(self, user, session, level_up):
+        """Перевірка та нарахування досягнень"""
+        profile = user.profile
+        
+        if level_up:
+            level_achievements = Achievement.objects.filter(
+                achievement_type='level',
+                requirement_value=profile.level
+            )
+            for achievement in level_achievements:
+                UserAchievement.objects.get_or_create(
+                    user=user,
+                    achievement=achievement
+                )
+        
+        if session.accuracy_percentage >= 90:
+            accuracy_achievements = Achievement.objects.filter(
+                achievement_type='accuracy',
+                requirement_value__lte=session.accuracy_percentage
+            )
+            for achievement in accuracy_achievements:
+                UserAchievement.objects.get_or_create(
+                    user=user,
+                    achievement=achievement
+                )
