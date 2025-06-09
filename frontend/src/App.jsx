@@ -7,6 +7,7 @@ import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AudioRecognizer from "./pages/AudioRecognizer";
 import Training from "./pages/Training";
+import Testing from "./pages/Testing";
 import './styles/main.scss';
 
 function Logout() {
@@ -44,6 +45,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Training />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/testing"
+          element={
+            <ProtectedRoute>
+              <Testing />
             </ProtectedRoute>
           }
         />
