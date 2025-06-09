@@ -93,3 +93,67 @@ class TestSession(models.Model):
         
         self.experience_gained = base_xp + accuracy_bonus + perfect_bonus
         return self.experience_gained
+    
+class TestQuestion(models.Model):
+    session = models.ForeignKey(TestSession, on_delete=models.CASCADE, related_name='questions')
+    question_number = models.IntegerField()
+    
+    interval_type = models.CharField(max_length=20, null=True, blank=True)
+    base_note = models.CharField(max_length=5, null=True, blank=True)
+    target_note = models.CharField(max_length=5, null=True, blank=True)
+    harmonic_audio_url = models.CharField(max_length=500, null=True, blank=True)
+    melodic_audio_url = models.CharField(max_length=500, null=True, blank=True)
+    
+    target_frequency = models.FloatField(null=True, blank=True)
+    target_note_name = models.CharField(max_length=10, null=True, blank=True)
+    reference_audio_url = models.CharField(max_length=500, null=True, blank=True)
+    
+    user_answer = models.CharField(max_length=50, null=True, blank=True)
+    is_correct = models.BooleanField(default=False)
+    answered_at = models.DateTimeField(null=True, blank=True)
+    
+    recorded_frequency = models.FloatField(null=True, blank=True)
+    frequency_tolerance = models.FloatField(default=10.0)  # Допустиме відхилення в Гц
+    
+    def __str__(self):
+        return f"Question {self.question_number} - {self.session.get_test_type_display()}"
+    
+    def check_frequency_answer(self, recorded_freq):
+        """Перевіряє правильність відтвореної частоти"""
+        if self.target_frequency and recorded_freq:
+            difference = abs(self.target_frequency - recorded_freq)
+            self.recorded_frequency = recorded_freq
+            self.is_correct = difference <= self.frequency_tolerance
+            return self.is_correct
+        return False
+
+
+class Achievement(models.Model):
+    ACHIEVEMENT_TYPES = [
+        ('level', 'Досягнення рівня'),
+        ('accuracy', 'Точність'),
+        ('streak', 'Серія правильних відповідей'),
+        ('tests_completed', 'Кількість тестів'),
+    ]
+    
+    name = models.CharField(max_length=100)
+    description = models.TextField()
+    achievement_type = models.CharField(max_length=20, choices=ACHIEVEMENT_TYPES)
+    requirement_value = models.IntegerField()
+    experience_reward = models.IntegerField(default=50)
+    icon = models.CharField(max_length=50, default='award')
+    
+    def __str__(self):
+        return self.name
+
+
+class UserAchievement(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='achievements')
+    achievement = models.ForeignKey(Achievement, on_delete=models.CASCADE)
+    earned_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ('user', 'achievement')
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.achievement.name}"
