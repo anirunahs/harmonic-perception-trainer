@@ -4,7 +4,8 @@ from django.conf import settings
 from django.conf.urls.static import static
 from api.views import (CreateUserView, GenerateIntervalsView, SecureAudioView, ClearUserAudioView,
                        UserProfileView, CreateTestSessionView, SubmitAnswerView, VocalRangeSetupView,
-                       TestSessionListView, TestSessionDetailView, UserAchievementsView)
+                       TestSessionListView, TestSessionDetailView, UserAchievementsView, 
+                       GenerateSingleNoteView, TestingSecureAudioView, ClearTestingAudioView)
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
@@ -26,6 +27,10 @@ urlpatterns = [
     path("api/testing/submit-answer/", SubmitAnswerView.as_view(), name="submit_answer"),
     path("api/testing/sessions/", TestSessionListView.as_view(), name="test_sessions"),
     path("api/testing/sessions/<int:pk>/", TestSessionDetailView.as_view(), name="test_session_detail"),
+
+    path("api/testing/generate-note/", GenerateSingleNoteView.as_view(), name="generate_single_note"),
+    path("api/testing/audio/<str:user_id>/<str:filename>", TestingSecureAudioView.as_view(), name="testing_secure_audio"),
+    path("api/testing/clear-audio/", ClearTestingAudioView.as_view(), name="clear_testing_audio"),
 
     path("api-auth/", include("rest_framework.urls")),
 ]

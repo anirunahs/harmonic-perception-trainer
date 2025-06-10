@@ -580,3 +580,242 @@ class SubmitAnswerView(APIView):
                     user=user,
                     achievement=achievement
                 )
+
+
+class GenerateSingleNoteView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def __init__(self):
+        super().__init__()
+        
+        self.note_frequencies = {
+            'C': 261.63,
+            'C#': 277.18,
+            'D': 293.66,
+            'D#': 311.13,
+            'E': 329.63,
+            'F': 349.23,
+            'F#': 369.99,
+            'G': 392.00,
+            'G#': 415.30,
+            'A': 440.00,
+            'A#': 466.16,
+            'B': 493.88
+        }
+        
+        self.audio_dir = os.path.join(settings.MEDIA_ROOT, 'testing_audio')
+        os.makedirs(self.audio_dir, exist_ok=True)
+
+    def get_note_frequency(self, note, octave=4):
+        """Отримати частоту ноти з вказаною октавою"""
+        base_freq = self.note_frequencies.get(note, 440.0)
+        octave_multiplier = 2 ** (octave - 4)
+        return base_freq * octave_multiplier
+
+    def generate_piano_tone(self, frequency, duration=3.0, sample_rate=44100):
+        """Генерація тону з тембром"""
+        t = np.linspace(0, duration, int(sample_rate * duration), False)
+        
+        wave = np.sin(2 * np.pi * frequency * t)
+        
+        harmonics = [
+            (2, 0.3), 
+            (3, 0.2), 
+            (4, 0.1), 
+            (5, 0.05),
+        ]
+        
+        for harmonic, amplitude in harmonics:
+            wave += amplitude * np.sin(2 * np.pi * frequency * harmonic * t)
+        
+        # ADSR
+        attack_time = 0.05
+        decay_time = 0.2
+        sustain_level = 0.7
+        release_time = 0.8
+        
+        envelope = np.ones_like(t)
+        
+        # Attack
+        attack_samples = int(attack_time * sample_rate)
+        if attack_samples > 0:
+            envelope[:attack_samples] = np.linspace(0, 1, attack_samples)
+        
+        # Decay
+        decay_samples = int(decay_time * sample_rate)
+        if decay_samples > 0 and attack_samples + decay_samples < len(envelope):
+            envelope[attack_samples:attack_samples + decay_samples] = np.linspace(1, sustain_level, decay_samples)
+        
+        # Sustain
+        sustain_start = attack_samples + decay_samples
+        release_start = len(envelope) - int(release_time * sample_rate)
+        if sustain_start < release_start:
+            envelope[sustain_start:release_start] = sustain_level
+        
+        # Release
+        release_samples = int(release_time * sample_rate)
+        if release_samples > 0:
+            envelope[-release_samples:] = np.linspace(sustain_level, 0, release_samples)
+        
+        wave *= envelope
+        
+        wave = wave / np.max(np.abs(wave)) * 0.7
+        
+        return wave
+
+    def save_audio(self, audio_data, filename, sample_rate=44100):
+        """Збереження аудіо в файл"""
+        filepath = os.path.join(self.audio_dir, filename)
+        audio_int16 = np.int16(audio_data * 32767)
+        
+        wavfile.write(filepath, sample_rate, audio_int16)
+        return filepath
+
+    def post(self, request):
+        """Генерація аудіо однієї ноти"""
+        try:
+            data = request.data
+            note = data.get('note', 'A')
+            octave = data.get('octave', 4)
+            duration = data.get('duration', 3.0)
+            
+            if note not in self.note_frequencies:
+                return Response(
+                    {'error': 'Невірна нота'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            if not (0 <= octave <= 8):
+                return Response(
+                    {'error': 'Невірна октава (0-8)'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            user_audio_dir = os.path.join(self.audio_dir, str(request.user.id))
+            if os.path.exists(user_audio_dir):
+                shutil.rmtree(user_audio_dir)
+            os.makedirs(user_audio_dir, exist_ok=True)
+            
+            frequency = self.get_note_frequency(note, octave)
+            
+            audio_data = self.generate_piano_tone(frequency, duration)
+            
+            note_id = str(uuid.uuid4())
+            filename = f"{note_id}_{note}{octave}.wav"
+            file_path = self.save_audio(
+                audio_data, 
+                os.path.join(str(request.user.id), filename)
+            )
+            
+            audio_url = f"/api/testing/audio/{request.user.id}/{filename}"
+            
+            return Response({
+                'note_id': note_id,
+                'note': note,
+                'octave': octave,
+                'frequency': frequency,
+                'duration': duration,
+                'audio_url': audio_url,
+                'note_name': f"{note}{octave}"
+            })
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Помилка генерації: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class TestingSecureAudioView(APIView):
+    """Безпечна віддача аудіофайлів для тестування"""
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+    
+    def get(self, request, user_id, filename):
+        if str(request.user.id) != str(user_id):
+            return HttpResponse("Доступ заборонено", status=403)
+        
+        audio_dir = os.path.join(settings.MEDIA_ROOT, 'testing_audio')
+        file_path = os.path.join(audio_dir, user_id, filename)
+        
+        allowed_dir = os.path.join(audio_dir, user_id)
+        try:
+            real_file_path = os.path.realpath(file_path)
+            real_allowed_dir = os.path.realpath(allowed_dir)
+            
+            if not real_file_path.startswith(real_allowed_dir):
+                return HttpResponse("Доступ заборонено", status=403)
+                
+        except Exception:
+            return HttpResponse("Помилка доступу", status=400)
+        
+        if not os.path.exists(file_path):
+            return HttpResponse("Файл не знайдено", status=404)
+        
+        if not filename.endswith('.wav'):
+            return HttpResponse("Непідтримуваний тип файлу", status=400)
+        
+        try:
+            file_size = os.path.getsize(file_path)
+            content_type = 'audio/wav'
+            
+            range_header = request.META.get('HTTP_RANGE')
+            
+            if range_header:
+                range_match = range_header.replace('bytes=', '').split('-')
+                start = int(range_match[0]) if range_match[0] else 0
+                end = int(range_match[1]) if range_match[1] else file_size - 1
+                
+                with open(file_path, 'rb') as f:
+                    f.seek(start)
+                    data = f.read(end - start + 1)
+                
+                response = HttpResponse(
+                    data,
+                    status=206,
+                    content_type=content_type
+                )
+                response['Content-Range'] = f'bytes {start}-{end}/{file_size}'
+                response['Accept-Ranges'] = 'bytes'
+                response['Content-Length'] = str(end - start + 1)
+            else:
+                response = FileResponse(
+                    open(file_path, 'rb'),
+                    content_type=content_type,
+                    filename=filename
+                )
+                response['Content-Length'] = str(file_size)
+                response['Accept-Ranges'] = 'bytes'
+            
+            response['Cache-Control'] = 'private, max-age=300'
+            response['X-Content-Type-Options'] = 'nosniff'
+            
+            return response
+            
+        except Exception as e:
+            print(f"Error serving testing file: {e}")
+            return HttpResponse("Помилка при видачі файлу", status=500)
+
+
+class ClearTestingAudioView(APIView):
+    """Очищення аудіофайлів тестування для користувача"""
+    permission_classes = [IsAuthenticated]
+    
+    def delete(self, request):
+        try:
+            user_audio_dir = os.path.join(
+                settings.MEDIA_ROOT, 
+                'testing_audio', 
+                str(request.user.id)
+            )
+            
+            if os.path.exists(user_audio_dir):
+                shutil.rmtree(user_audio_dir)
+            
+            return Response({'message': 'Файли тестування успішно видалено'})
+            
+        except Exception as e:
+            return Response(
+                {'error': f'Помилка видалення файлів: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
