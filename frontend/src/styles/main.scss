@@ -7,6 +7,9 @@
 @use "./training";
 @use "./piano-keyboard";
 
+@use "./testing/testing";
+@use "./testing/interval-test";
+
 // Для тексту
 .text-center { text-align: center; }
 .text-left { text-align: left; }

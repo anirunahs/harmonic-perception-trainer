@@ -29,7 +29,7 @@ function Header() {
       path: "/testing", 
       label: "Тестування", 
       icon: BookOpenCheck, 
-      disabled: true 
+      active: isActive("/testing") 
     }
   ];
 
