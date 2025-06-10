@@ -59,7 +59,7 @@ const IntervalRecognitionTest = ({
     setHasAnswered(false);
   }, [question, clearAllAudio]);
 
-  const handlePlayAudio = (audioType) => {
+  const handlePlayAudio = async (audioType) => {
     if (!question) return;
     
     const fakeIntervals = [{
@@ -68,7 +68,12 @@ const IntervalRecognitionTest = ({
       melodic_url: question.melodic_audio_url
     }];
     
-    playAudio(question.id, audioType, fakeIntervals);
+    try {
+      await playAudio(question.id, audioType, fakeIntervals);
+    } catch (error) {
+      console.error('Помилка відтворення аудіо:', error);
+      setAudioError('Не вдалося відтворити аудіо. Спробуйте ще раз.');
+    }
   };
 
   const handleAnswerSelect = (answerId) => {
@@ -148,7 +153,7 @@ const IntervalRecognitionTest = ({
             className={`audio-btn audio-btn--harmonic ${
               currentPlaying === `${question.id}_harmonic` ? 'audio-btn--playing' : ''
             }`}
-            //onClick={() => handlePlayAudio('harmonic')}
+            onClick={() => handlePlayAudio('harmonic')}
             disabled={loadingAudio === `${question.id}_harmonic`}
           >
             {loadingAudio === `${question.id}_harmonic` ? (
@@ -165,7 +170,7 @@ const IntervalRecognitionTest = ({
             className={`audio-btn audio-btn--melodic ${
               currentPlaying === `${question.id}_melodic` ? 'audio-btn--playing' : ''
             }`}
-            //onClick={() => handlePlayAudio('melodic')}
+            onClick={() => handlePlayAudio('melodic')}
             disabled={loadingAudio === `${question.id}_melodic`}
           >
             {loadingAudio === `${question.id}_melodic` ? (

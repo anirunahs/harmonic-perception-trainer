@@ -10,7 +10,7 @@ const Testing = () => {
   const [testSettings, setTestSettings] = useState({
     totalQuestions: 10,
     intervals: [],
-    difficulty: 'medium'
+    difficulty: "medium",
   });
   const [showResults, setShowResults] = useState(false);
 
@@ -29,24 +29,24 @@ const Testing = () => {
     previousQuestion,
     resetTest,
     getTestProgress,
-    getCorrectAnswersCount
+    getCorrectAnswersCount,
   } = useTesting();
 
   const testTypes = [
     {
-      id: 'interval_recognition',
-      name: 'Розпізнавання інтервалів',
-      description: 'Прослухайте музичний інтервал та оберіть правильну назву',
+      id: "interval_recognition",
+      name: "Розпізнавання інтервалів",
+      description: "Прослухайте музичний інтервал та оберіть правильну назву",
       icon: "M",
-      difficulty: 'medium'
+      difficulty: "medium",
     },
     {
-      id: 'note_reproduction',
-      name: 'Відтворення нот',
-      description: 'Прослухайте ноту та відтворіть її голосом',
+      id: "note_reproduction",
+      name: "Відтворення нот",
+      description: "Прослухайте ноту та відтворіть її голосом",
       icon: "Г",
-      difficulty: 'hard'
-    }
+      difficulty: "hard",
+    },
   ];
 
   const intervals = [
@@ -61,7 +61,7 @@ const Testing = () => {
     { id: "major_sixth", name: "Велика секста" },
     { id: "minor_seventh", name: "Мала септима" },
     { id: "major_seventh", name: "Велика септима" },
-    { id: "perfect_octave", name: "Чиста октава" }
+    { id: "perfect_octave", name: "Чиста октава" },
   ];
 
   useEffect(() => {
@@ -120,7 +120,7 @@ const Testing = () => {
   const progress = getTestProgress();
   const correctAnswers = getCorrectAnswersCount();
 
-  // Результати
+  // Результат
   if (showResults && results) {
     return (
       <>
@@ -192,7 +192,6 @@ const Testing = () => {
     );
   }
 
-  // Показати тест
   if (currentSession && currentQuestion) {
     return (
       <>
@@ -235,11 +234,10 @@ const Testing = () => {
                     isSubmitting={isLoading}
                   />
                 ) : currentSession.test_type === 'note_reproduction' ? (
-                  <NoteReproductionTest
-                    question={currentQuestion}
-                    onAnswer={handleAnswerSubmit}
-                    isSubmitting={isLoading}
-                  />
+                  <div className="note-reproduction-placeholder">
+                    <h3>Тест відтворення нот</h3>
+                    <p>Цей тип тесту ще не реалізований</p>
+                  </div>
                 ) : null}
               </div>
 
@@ -322,7 +320,7 @@ const Testing = () => {
             {selectedTestType && (
               <div className="test-settings">
                 <h2 className="section-title">Налаштування</h2>
-
+                
                 <div className="settings-grid">
                   <div className="setting-group">
                     <label className="setting-label">Кількість питань</label>
