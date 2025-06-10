@@ -1,0 +1,98 @@
+[
+  {
+    "model": "api.achievement",
+    "pk": 1,
+    "fields": {
+      "name": "Перші кроки",
+      "description": "Завершіть свій перший тест",
+      "achievement_type": "tests_completed",
+      "requirement_value": 1,
+      "experience_reward": 50,
+      "icon": "play-circle"
+    }
+  },
+  {
+    "model": "api.achievement",
+    "pk": 2,
+    "fields": {
+      "name": "Новачок",
+      "description": "Досягніть 2 рівня",
+      "achievement_type": "level",
+      "requirement_value": 2,
+      "experience_reward": 100,
+      "icon": "star"
+    }
+  },
+  {
+    "model": "api.achievement",
+    "pk": 3,
+    "fields": {
+      "name": "Точність",
+      "description": "Досягніть 80% точності в тесті",
+      "achievement_type": "accuracy",
+      "requirement_value": 80,
+      "experience_reward": 75,
+      "icon": "target"
+    }
+  },
+  {
+    "model": "api.achievement",
+    "pk": 4,
+    "fields": {
+      "name": "Перфекціоніст",
+      "description": "Досягніть 100% точності в тесті",
+      "achievement_type": "accuracy",
+      "requirement_value": 100,
+      "experience_reward": 150,
+      "icon": "award"
+    }
+  },
+  {
+    "model": "api.achievement",
+    "pk": 5,
+    "fields": {
+      "name": "Досвідчений",
+      "description": "Досягніть 5 рівня",
+      "achievement_type": "level",
+      "requirement_value": 5,
+      "experience_reward": 200,
+      "icon": "shield"
+    }
+  },
+  {
+    "model": "api.achievement",
+    "pk": 6,
+    "fields": {
+      "name": "Майстер",
+      "description": "Досягніть 10 рівня",
+      "achievement_type": "level",
+      "requirement_value": 10,
+      "experience_reward": 500,
+      "icon": "crown"
+    }
+  },
+  {
+    "model": "api.achievement",
+    "pk": 7,
+    "fields": {
+      "name": "Наполегливість",
+      "description": "Завершіть 10 тестів",
+      "achievement_type": "tests_completed",
+      "requirement_value": 10,
+      "experience_reward": 200,
+      "icon": "repeat"
+    }
+  },
+  {
+    "model": "api.achievement",
+    "pk": 8,
+    "fields": {
+      "name": "Марафонець",
+      "description": "Завершіть 50 тестів",
+      "achievement_type": "tests_completed",
+      "requirement_value": 50,
+      "experience_reward": 750,
+      "icon": "activity"
+    }
+  }
+]
