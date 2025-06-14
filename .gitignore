@@ -16,3 +16,7 @@ __pycache__/
 
 # Медіа
 backend/media/
+
+# Датасет
+dataset-preparation/raw-recordings/
+dataset-preparation/processed-segments/
