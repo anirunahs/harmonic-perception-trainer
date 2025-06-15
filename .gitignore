@@ -20,3 +20,4 @@ backend/media/
 # Датасет
 dataset-preparation/raw-recordings/
 dataset-preparation/processed-segments/
+dataset-preparation/spectrograms/
