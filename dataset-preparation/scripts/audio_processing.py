@@ -7,7 +7,7 @@ from pathlib import Path
 import shutil
 
 class AudioProcessor:
-    def __init__(self, sr=44100, segment_duration=3.0):
+    def __init__(self, sr=44100, segment_duration=2.0):
         self.sr = sr
         self.segment_duration = segment_duration
         self.segment_samples = int(segment_duration * sr)
@@ -48,7 +48,7 @@ class AudioProcessor:
         return None, None
     
     def preprocess_audio_for_training(self, audio):
-        """Попередня обробка для тренувального датасету (з врахуванням запису з телефону)"""
+        """Попередня обробка для датасету"""
         audio = audio - np.mean(audio)
         
         audio = np.clip(audio, -0.98, 0.98)
@@ -60,27 +60,9 @@ class AudioProcessor:
         
         audio = self.apply_compressor(audio, threshold=-15, ratio=6.0)
         
-        audio = self.apply_highpass_filter(audio, cutoff_freq=100)
+        audio = self.apply_highpass_filter(audio, cutoff_freq=80)
         
         audio = self.apply_lowpass_filter(audio, cutoff_freq=8000)
-        
-        audio = self.normalize_audio(audio, target_db=-1.0)
-        
-        return audio
-    
-    def preprocess_live_audio(self, audio):
-        """Обробка для живого аудіо зі сторінки (з подавленням шумів)"""
-        audio = audio - np.mean(audio)
-        
-        limited = np.clip(audio, -0.95, 0.95)
-        saturation_factor = 0.8
-        audio = np.tanh(limited / saturation_factor) * saturation_factor
-        
-        audio = self.apply_compressor(audio)
-        
-        audio = self.reduce_noise(audio)
-        
-        audio = self.apply_highpass_filter(audio, cutoff_freq=80)
         
         audio = self.normalize_audio(audio, target_db=-1.0)
         
@@ -128,56 +110,6 @@ class AudioProcessor:
         gain_reduction = 10 ** (-smoothed_reduction / 20)
         return audio * gain_reduction
     
-    def reduce_noise(self, audio):
-        """Видалення шуму з fallback"""
-        try:
-            import noisereduce as nr
-            noise_duration = int(0.5 * self.sr)
-            noise_sample = np.concatenate([
-                audio[:noise_duration],
-                audio[-noise_duration:]
-            ])
-            
-            signal_rms = np.sqrt(np.mean(audio**2))
-            noise_rms = np.sqrt(np.mean(noise_sample**2))
-            
-            if noise_rms == 0:
-                return audio
-            
-            snr_db = 20 * np.log10(signal_rms / noise_rms)
-            
-            if snr_db < 15:
-                reduced_noise = nr.reduce_noise(
-                    y=audio, sr=self.sr,
-                    stationary=True,
-                    prop_decrease=0.7
-                )
-            else:
-                reduced_noise = nr.reduce_noise(
-                    y=audio, sr=self.sr,
-                    stationary=True,
-                    prop_decrease=0.4
-                )
-            
-            return reduced_noise
-            
-        except ImportError:
-            return self.noise_gate(audio)
-    
-    def noise_gate(self, audio, threshold_db=-45, ratio=10):
-        """Простий noise gate як fallback"""
-        window_size = 1024
-        rms = np.sqrt(np.convolve(audio**2, np.ones(window_size)/window_size, mode='same'))
-        rms_db = 20 * np.log10(np.maximum(rms, 1e-10))
-        
-        gate_gain = np.ones_like(rms_db)
-        mask = rms_db < threshold_db
-        gate_gain[mask] = 1.0 / ratio
-        
-        gate_gain = np.convolve(gate_gain, np.ones(100)/100, mode='same')
-        
-        return audio * gate_gain
-    
     def apply_highpass_filter(self, audio, cutoff_freq=80):
         """High-pass фільтр для видалення низьких частот"""
         nyquist = self.sr / 2
@@ -208,7 +140,7 @@ class AudioProcessor:
         return normalized
     
     def pitch_shift(self, audio, semitones):
-        """Транспозиція з використанням scipy для уникнення resampy"""
+        """Транспозиція"""
         if semitones == 0:
             return audio
         
