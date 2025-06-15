@@ -47,71 +47,64 @@ class AudioProcessor:
         
         return None, None
     
-    def clean_specific_interval_files(self, output_base_dir, interval_name, dynamics):
-        """Очистити файли конкретного інтервалу та динаміки"""
-        dirs_to_check = [
-            os.path.join(output_base_dir, "original"),
-            os.path.join(output_base_dir, "up_semitone"),
-            os.path.join(output_base_dir, "down_semitone")
-        ]
+    def preprocess_audio_for_training(self, audio):
+        """Попередня обробка для тренувального датасету (з врахуванням запису з телефону)"""
+        audio = audio - np.mean(audio)
         
-        patterns_to_remove = [
-            f"{interval_name}_*_{dynamics}.wav",
-            f"{interval_name}_*_{dynamics}_up.wav",
-            f"{interval_name}_*_{dynamics}_down.wav"
-        ]
+        audio = np.clip(audio, -0.98, 0.98)
         
-        import glob
-        removed_count = 0
+        saturation_factor = 0.7
+        audio = np.tanh(audio / saturation_factor) * saturation_factor
         
-        for dir_path in dirs_to_check:
-            if os.path.exists(dir_path):
-                for pattern in patterns_to_remove:
-                    files_to_remove = glob.glob(os.path.join(dir_path, pattern))
-                    for file_path in files_to_remove:
-                        try:
-                            if os.path.exists(file_path):
-                                os.remove(file_path)
-                                removed_count += 1
-                        except PermissionError:
-                            print(f"Не можу видалити {file_path}: файл використовується")
-                        except Exception as e:
-                            print(f"Помилка видалення {file_path}: {e}")
+        audio = np.clip(audio, -0.95, 0.95)
         
-        if removed_count > 0:
-            print(f"Видалено {removed_count} старих файлів для {interval_name}_{dynamics}")
+        audio = self.apply_compressor(audio, threshold=-15, ratio=6.0)
         
-        return removed_count
+        audio = self.apply_highpass_filter(audio, cutoff_freq=100)
+        
+        audio = self.apply_lowpass_filter(audio, cutoff_freq=8000)
+        
+        audio = self.normalize_audio(audio, target_db=-1.0)
+        
+        return audio
     
-    def clean_output_directories(self, output_base_dir):
-        dirs_to_create = [
-            os.path.join(output_base_dir, "original"),
-            os.path.join(output_base_dir, "up_semitone"),
-            os.path.join(output_base_dir, "down_semitone")
-        ]
+    def preprocess_live_audio(self, audio):
+        """Обробка для живого аудіо зі сторінки (з подавленням шумів)"""
+        audio = audio - np.mean(audio)
         
-        for dir_path in dirs_to_create:
-            Path(dir_path).mkdir(parents=True, exist_ok=True)
-    
-    def load_audio_stereo(self, file_path):
-        """Завантажити аудіо файл у стерео з правильним закриттям ресурсів"""
-        try:
-            audio, sr = librosa.load(file_path, sr=self.sr, mono=False)
-            print(f"Завантажено: {os.path.basename(file_path)}, тривалість: {len(audio[0] if audio.ndim > 1 else audio)/sr:.2f}с")
-            return audio
-        except Exception as e:
-            print(f"Помилка завантаження {file_path}: {e}")
-            return None
-        finally:
-            pass
-    
-    def hard_limiter(self, audio, threshold=0.95):
-        limited = np.clip(audio, -threshold, threshold)
+        limited = np.clip(audio, -0.95, 0.95)
         saturation_factor = 0.8
-        limited = np.tanh(limited / saturation_factor) * saturation_factor
-        return limited
+        audio = np.tanh(limited / saturation_factor) * saturation_factor
+        
+        audio = self.apply_compressor(audio)
+        
+        audio = self.reduce_noise(audio)
+        
+        audio = self.apply_highpass_filter(audio, cutoff_freq=80)
+        
+        audio = self.normalize_audio(audio, target_db=-1.0)
+        
+        return audio
     
-    def compressor(self, audio, threshold=-12, ratio=4.0, attack_time=0.003, release_time=0.1):
+    def apply_lowpass_filter(self, audio, cutoff_freq=8000):
+        """Low-pass фільтр для зрізання високочастотних артефактів"""
+        nyquist = self.sr / 2
+        normalized_cutoff = cutoff_freq / nyquist
+        
+        if normalized_cutoff >= 1.0:
+            return audio
+        
+        b, a = butter(4, normalized_cutoff, btype='low')
+        
+        if audio.ndim > 1:
+            filtered = np.array([filtfilt(b, a, channel) for channel in audio])
+        else:
+            filtered = filtfilt(b, a, audio)
+        
+        return filtered
+    
+    def apply_compressor(self, audio, threshold=-12, ratio=4.0, attack_time=0.003, release_time=0.1):
+        """Компресор для вирівнювання динаміки"""
         attack_samples = int(attack_time * self.sr)
         release_samples = int(release_time * self.sr)
         
@@ -133,42 +126,12 @@ class AudioProcessor:
             smoothed_reduction[i] = (1-alpha) * smoothed_reduction[i-1] + alpha * reduction_db[i]
         
         gain_reduction = 10 ** (-smoothed_reduction / 20)
-        compressed = audio * gain_reduction
-        
-        return compressed
+        return audio * gain_reduction
     
-    def noise_gate(self, audio, threshold_db=-45, ratio=10):
-        window_size = 1024
-        rms = np.sqrt(np.convolve(audio**2, np.ones(window_size)/window_size, mode='same'))
-        rms_db = 20 * np.log10(np.maximum(rms, 1e-10))
-        
-        gate_gain = np.ones_like(rms_db)
-        mask = rms_db < threshold_db
-        gate_gain[mask] = 1.0 / ratio
-        
-        gate_gain = np.convolve(gate_gain, np.ones(100)/100, mode='same')
-        
-        return audio * gate_gain
-    
-    def advanced_noise_reduction(self, audio):
+    def reduce_noise(self, audio):
+        """Видалення шуму з fallback"""
         try:
             import noisereduce as nr
-            reduced_noise = nr.reduce_noise(
-                y=audio, 
-                sr=self.sr,
-                stationary=True,
-                prop_decrease=1.0
-            )
-            print("Використано noisereduce для видалення шумів")
-            return reduced_noise
-        except ImportError:
-            print("noisereduce не встановлено, заміна на noise gate")
-            return self.noise_gate(audio)
-    
-    def adaptive_noise_reduction(self, audio):
-        try:
-            import noisereduce as nr
-            
             noise_duration = int(0.5 * self.sr)
             noise_sample = np.concatenate([
                 audio[:noise_duration],
@@ -182,41 +145,41 @@ class AudioProcessor:
                 return audio
             
             snr_db = 20 * np.log10(signal_rms / noise_rms)
-            print(f"Оцінений SNR: {snr_db:.1f} dB")
             
-            if snr_db < 10:
+            if snr_db < 15:
                 reduced_noise = nr.reduce_noise(
-                    y=audio, 
-                    sr=self.sr,
-                    stationary=False,
-                    prop_decrease=0.8,
-                    n_std_thresh_stationary=1.5
-                )
-                print("Інтенсивне видалення шумів (низький SNR)")
-            elif snr_db < 20:
-                reduced_noise = nr.reduce_noise(
-                    y=audio, 
-                    sr=self.sr,
+                    y=audio, sr=self.sr,
                     stationary=True,
-                    prop_decrease=0.6
+                    prop_decrease=0.7
                 )
-                print("Помірне видалення шумів (середній SNR)")
             else:
                 reduced_noise = nr.reduce_noise(
-                    y=audio, 
-                    sr=self.sr,
+                    y=audio, sr=self.sr,
                     stationary=True,
-                    prop_decrease=0.3
+                    prop_decrease=0.4
                 )
-                print("М'яке видалення шумів (високий SNR)")
             
             return reduced_noise
             
         except ImportError:
-            print("noisereduce не встановлено, заміна на noise gate")
             return self.noise_gate(audio)
     
+    def noise_gate(self, audio, threshold_db=-45, ratio=10):
+        """Простий noise gate як fallback"""
+        window_size = 1024
+        rms = np.sqrt(np.convolve(audio**2, np.ones(window_size)/window_size, mode='same'))
+        rms_db = 20 * np.log10(np.maximum(rms, 1e-10))
+        
+        gate_gain = np.ones_like(rms_db)
+        mask = rms_db < threshold_db
+        gate_gain[mask] = 1.0 / ratio
+        
+        gate_gain = np.convolve(gate_gain, np.ones(100)/100, mode='same')
+        
+        return audio * gate_gain
+    
     def apply_highpass_filter(self, audio, cutoff_freq=80):
+        """High-pass фільтр для видалення низьких частот"""
         nyquist = self.sr / 2
         normalized_cutoff = cutoff_freq / nyquist
         
@@ -229,21 +192,8 @@ class AudioProcessor:
         
         return filtered
     
-    def pitch_shift(self, audio, semitones):
-        if audio.ndim > 1:
-            shifted_channels = []
-            for channel in audio:
-                shifted = librosa.effects.pitch_shift(
-                    channel, sr=self.sr, n_steps=semitones, bins_per_octave=12
-                )
-                shifted_channels.append(shifted)
-            return np.array(shifted_channels)
-        else:
-            return librosa.effects.pitch_shift(
-                audio, sr=self.sr, n_steps=semitones, bins_per_octave=12
-            )
-    
-    def normalize_final(self, audio, target_db=-1.0):
+    def normalize_audio(self, audio, target_db=-1.0):
+        """Нормалізація аудіо до заданого рівня"""
         if audio.ndim > 1:
             peak_amplitude = np.max(np.abs(audio))
         else:
@@ -257,83 +207,73 @@ class AudioProcessor:
         
         return normalized
     
-    def rms_normalize(self, audio, target_rms_db=-20.0):
-        rms = np.sqrt(np.mean(audio**2))
-        
-        if rms == 0:
+    def pitch_shift(self, audio, semitones):
+        """Транспозиція з використанням scipy для уникнення resampy"""
+        if semitones == 0:
             return audio
         
-        current_rms_db = 20 * np.log10(rms)
-        gain_db = target_rms_db - current_rms_db
-        gain_linear = 10 ** (gain_db / 20)
-        
-        normalized = audio * gain_linear
-        
-        if np.max(np.abs(normalized)) > 0.95:
-            peak_reduction = 0.95 / np.max(np.abs(normalized))
-            normalized *= peak_reduction
-            print(f"RMS нормалізація з peak limiting: {current_rms_db:.1f} → {target_rms_db} dB RMS")
-        else:
-            print(f"RMS нормалізація: {current_rms_db:.1f} → {target_rms_db} dB RMS")
-        
-        return normalized
-    
-    def adaptive_normalize(self, audio):
-        rms = np.sqrt(np.mean(audio**2))
-        peak = np.max(np.abs(audio))
-        
-        if peak == 0:
+        try:
+            if audio.ndim > 1:
+                shifted_channels = []
+                for channel in audio:
+                    shifted = librosa.effects.pitch_shift(
+                        channel, sr=self.sr, n_steps=semitones, 
+                        bins_per_octave=12, res_type='scipy'
+                    )
+                    shifted_channels.append(shifted)
+                return np.array(shifted_channels)
+            else:
+                return librosa.effects.pitch_shift(
+                    audio, sr=self.sr, n_steps=semitones, 
+                    bins_per_octave=12, res_type='scipy'
+                )
+        except Exception as e:
+            print(f"Помилка транспозиції на {semitones} піввтонів: {e}")
             return audio
-        
-        crest_factor = peak / rms if rms > 0 else 1
-        crest_factor_db = 20 * np.log10(crest_factor)
-        
-        print(f"Crest factor: {crest_factor_db:.1f} dB")
-        
-        if crest_factor_db > 15:
-            print("Використовую RMS нормалізацію (високий crest factor)")
-            return self.rms_normalize(audio, target_rms_db=-18.0)
-        else:
-            print("Використовую peak нормалізацію (низький crest factor)")
-            return self.normalize_final(audio, target_db=-1.0)
     
     def convert_to_mono(self, audio):
+        """Конвертування стерео в моно"""
         if audio.ndim > 1:
             mono = np.mean(audio, axis=0)
-            print("Конвертовано зі стерео в моно")
             return mono
         return audio
     
-    def detect_onsets(self, audio, hop_length=512, min_interval=1.5):
-        onset_frames = librosa.onset.onset_detect(
-            y=audio,
-            sr=self.sr,
-            hop_length=hop_length,
-            backtrack=True,
-            units='time',
-            pre_max=20,
-            post_max=20,
-            pre_avg=100,
-            post_avg=100,
-            delta=0.2,
-            wait=10
-        )
-        
-        filtered_onsets = []
-        for onset in onset_frames:
-            if not filtered_onsets or onset - filtered_onsets[-1] >= min_interval:
-                filtered_onsets.append(onset)
-        
-        print(f"Знайдено {len(filtered_onsets)} onset'ів")
-        return np.array(filtered_onsets)
+    def detect_onsets(self, audio, min_interval=1.2):
+        """Виявлення початків"""
+        try:
+            onset_frames = librosa.onset.onset_detect(
+                y=audio,
+                sr=self.sr,
+                hop_length=512,
+                backtrack=True,
+                units='time',
+                pre_max=30,
+                post_max=30,
+                pre_avg=150,
+                post_avg=150,
+                delta=0.3,
+                wait=15
+            )
+            
+            filtered_onsets = []
+            for onset in onset_frames:
+                if not filtered_onsets or onset - filtered_onsets[-1] >= min_interval:
+                    filtered_onsets.append(onset)
+            
+            return np.array(filtered_onsets)
+        except Exception as e:
+            print(f"Помилка onset detection: {e}")
+            duration = len(audio) / self.sr
+            num_segments = max(int(duration / 2), 30)
+            return np.linspace(1, duration - self.segment_duration - 1, num_segments)
     
     def cut_segments(self, audio, onsets, interval_name, dynamics, output_dir):
-        """Нарізати аудіо на сегменти з правильним збереженням файлів"""
+        """Нарізка аудіо на сегменти з організацією по папках інтервалів"""
+        interval_dir = os.path.join(output_dir, interval_name)
+        dynamics_dir = os.path.join(interval_dir, dynamics)
+        Path(dynamics_dir).mkdir(parents=True, exist_ok=True)
+        
         segments = []
-        
-        # Переконуємося що папка існує
-        Path(output_dir).mkdir(parents=True, exist_ok=True)
-        
         for i, onset in enumerate(onsets):
             start_sample = int(onset * self.sr)
             end_sample = start_sample + self.segment_samples
@@ -342,16 +282,14 @@ class AudioProcessor:
                 segment = audio[start_sample:end_sample]
                 
                 filename = f"{interval_name}_{i:03d}_{dynamics}.wav"
-                filepath = os.path.join(output_dir, filename)
+                filepath = os.path.join(dynamics_dir, filename)
                 
                 try:
-                    # Зберігаємо файл з явним закриттям
                     sf.write(filepath, segment, self.sr)
                     
-                    # Перевіряємо що файл дійсно створений
                     if os.path.exists(filepath) and os.path.getsize(filepath) > 0:
                         segments.append((segment, filename))
-                        print(f"Збережено: {filename}")
+                        print(f"Збережено: {interval_name}/{dynamics}/{filename}")
                     else:
                         print(f"Помилка збереження: {filename}")
                         
@@ -361,8 +299,71 @@ class AudioProcessor:
         
         return segments
     
+    def clean_specific_interval_files(self, output_base_dir, interval_name, dynamics):
+        """Очистити файли конкретного інтервалу та динаміки"""
+        dirs_to_check = [
+            os.path.join(output_base_dir, "original", interval_name, dynamics),
+            os.path.join(output_base_dir, "original", interval_name, f"{dynamics}_up"),
+            os.path.join(output_base_dir, "original", interval_name, f"{dynamics}_down"),
+            os.path.join(output_base_dir, "up_semitone", interval_name, dynamics),
+            os.path.join(output_base_dir, "up_semitone", interval_name, f"{dynamics}_up"),
+            os.path.join(output_base_dir, "down_semitone", interval_name, dynamics),
+            os.path.join(output_base_dir, "down_semitone", interval_name, f"{dynamics}_down")
+        ]
+        
+        import glob
+        import time
+        removed_count = 0
+        
+        for dir_path in dirs_to_check:
+            if os.path.exists(dir_path):
+                wav_files = glob.glob(os.path.join(dir_path, "*.wav"))
+                for file_path in wav_files:
+                    max_retries = 3
+                    for attempt in range(max_retries):
+                        try:
+                            if os.path.exists(file_path):
+                                os.remove(file_path)
+                                removed_count += 1
+                                break
+                        except PermissionError:
+                            if attempt < max_retries - 1:
+                                print(f"Файл зайнятий, спроба {attempt + 1}/{max_retries}: {os.path.basename(file_path)}")
+                                time.sleep(0.5)
+                            else:
+                                print(f"Не можу видалити {file_path}: файл використовується іншим процесом")
+                        except Exception as e:
+                            print(f"Помилка видалення {file_path}: {e}")
+                            break
+        
+        if removed_count > 0:
+            print(f"Видалено {removed_count} старих файлів для {interval_name}_{dynamics}")
+        
+        return removed_count
+    
+    def clean_output_directories(self, output_base_dir):
+        """Створення структури папок"""
+        dirs_to_create = [
+            os.path.join(output_base_dir, "original"),
+            os.path.join(output_base_dir, "up_semitone"),
+            os.path.join(output_base_dir, "down_semitone")
+        ]
+        
+        for dir_path in dirs_to_create:
+            Path(dir_path).mkdir(parents=True, exist_ok=True)
+    
+    def load_audio_stereo(self, file_path):
+        """Завантаження аудіо файлу"""
+        try:
+            audio, sr = librosa.load(file_path, sr=self.sr, mono=False)
+            print(f"Завантажено: {os.path.basename(file_path)}, тривалість: {len(audio[0] if audio.ndim > 1 else audio)/sr:.2f}с")
+            return audio
+        except Exception as e:
+            print(f"Помилка завантаження {file_path}: {e}")
+            return None
+    
     def process_single_recording(self, input_file, output_base_dir):
-        """Повна обробка одного запису з правильним управлінням ресурсами"""
+        """Повна обробка одного запису"""
         print(f"\n=== Обробка {os.path.basename(input_file)} ===")
         
         filename = os.path.basename(input_file)
@@ -374,89 +375,62 @@ class AudioProcessor:
         
         print(f"Інтервал: {interval_name}, Динаміка: {dynamics}")
         
-        # Перевіряємо що вхідний файл існує та доступний
         if not os.path.exists(input_file):
             print(f"Файл не існує: {input_file}")
             return 0
         
         try:
             self.clean_output_directories(output_base_dir)
-            removed_count = self.clean_specific_interval_files(output_base_dir, interval_name, dynamics)
+            self.clean_specific_interval_files(output_base_dir, interval_name, dynamics)
             
             # Завантажуємо аудіо
             audio = self.load_audio_stereo(input_file)
             if audio is None:
                 return 0
             
-            print("Застосування хард лімітера...")
+            print("Попередня обробка аудіо...")
             if audio.ndim > 1:
-                audio = np.array([self.hard_limiter(channel) for channel in audio])
+                audio = np.array([self.preprocess_audio_for_training(channel) for channel in audio])
             else:
-                audio = self.hard_limiter(audio)
-            
-            print("Застосування компресора...")
-            if audio.ndim > 1:
-                audio = np.array([self.compressor(channel) for channel in audio])
-            else:
-                audio = self.compressor(audio)
-            
-            print("Покращене видалення шуму...")
-            if audio.ndim > 1:
-                audio = np.array([self.adaptive_noise_reduction(channel) for channel in audio])
-            else:
-                audio = self.adaptive_noise_reduction(audio)
-            
-            print("High-pass фільтр...")
-            audio = self.apply_highpass_filter(audio)
+                audio = self.preprocess_audio_for_training(audio)
             
             print("Створення транспозицій...")
             audio_up = self.pitch_shift(audio, 1.0)
             audio_down = self.pitch_shift(audio, -1.0)
-            
-            print("Адаптивна нормалізація гучності...")
-            audio = self.adaptive_normalize(audio)
-            audio_up = self.adaptive_normalize(audio_up)
-            audio_down = self.adaptive_normalize(audio_down)
             
             print("Конвертація в моно...")
             audio_mono = self.convert_to_mono(audio)
             audio_up_mono = self.convert_to_mono(audio_up)
             audio_down_mono = self.convert_to_mono(audio_down)
             
-            # Звільняємо пам'ять від стерео версій
             del audio, audio_up, audio_down
             
             onsets = self.detect_onsets(audio_mono)
+            print(f"Знайдено {len(onsets)} onset'ів")
             
             if len(onsets) < 10:
-                print(f"Мало onset'ів ({len(onsets)}). Перевірте запис.")
-            
-            original_dir = os.path.join(output_base_dir, "original")
-            up_dir = os.path.join(output_base_dir, "up_semitone") 
-            down_dir = os.path.join(output_base_dir, "down_semitone")
-            
-            print("Нарізка оригінальних сегментів...")
+                print(f"Мало onset'ів ({len(onsets)}). Можливо, потрібно налаштувати параметри.")
+                        
+            print("Нарізка сегментів...")
             original_segments = self.cut_segments(
-                audio_mono, onsets, interval_name, dynamics, original_dir
+                audio_mono, onsets, interval_name, dynamics, 
+                os.path.join(output_base_dir, "original")
             )
             
-            print("Нарізка +1 півтон...")
             up_segments = self.cut_segments(
-                audio_up_mono, onsets, interval_name, f"{dynamics}_up", up_dir
+                audio_up_mono, onsets, interval_name, f"{dynamics}_up",
+                os.path.join(output_base_dir, "up_semitone")
             )
             
-            print("Нарізка -1 півтон...")
             down_segments = self.cut_segments(
-                audio_down_mono, onsets, interval_name, f"{dynamics}_down", down_dir
+                audio_down_mono, onsets, interval_name, f"{dynamics}_down",
+                os.path.join(output_base_dir, "down_semitone")
             )
             
             del audio_mono, audio_up_mono, audio_down_mono
             
             total_segments = len(original_segments) + len(up_segments) + len(down_segments)
             print(f"Створено {total_segments} сегментів для {interval_name}_{dynamics}")
-            
-            import time
-            time.sleep(0.1)
             
             return total_segments
             
@@ -467,14 +441,66 @@ class AudioProcessor:
             import gc
             gc.collect()
 
-def clear_entire_dataset(output_dir):
-    if os.path.exists(output_dir):
-        shutil.rmtree(output_dir)
-        print(f"Повністю очищено датасет: {output_dir}")
+
+def safe_clear_dataset(output_dir):
+    """Очищення"""
+    if not os.path.exists(output_dir):
         return True
+    
+    removed_count = 0
+    failed_count = 0
+    
+    for root, dirs, files in os.walk(output_dir, topdown=False):
+        for file in files:
+            file_path = os.path.join(root, file)
+            try:
+                os.remove(file_path)
+                removed_count += 1
+            except PermissionError:
+                print(f"Пропускаємо зайнятий файл: {os.path.basename(file_path)}")
+                failed_count += 1
+            except Exception as e:
+                print(f"Помилка видалення {file_path}: {e}")
+                failed_count += 1
+        
+        for dir_name in dirs:
+            dir_path = os.path.join(root, dir_name)
+            try:
+                if not os.listdir(dir_path):
+                    os.rmdir(dir_path)
+            except:
+                pass
+    
+    print(f"Видалено {removed_count} файлів, пропущено {failed_count} зайнятих файлів")
+    return failed_count == 0
+
+
+def clear_entire_dataset(output_dir):
+    """Повне очищення датасету з повторними спробами"""
+    if os.path.exists(output_dir):
+        import time
+        max_retries = 3
+        
+        for attempt in range(max_retries):
+            try:
+                shutil.rmtree(output_dir)
+                print(f"Повністю очищено датасет: {output_dir}")
+                return True
+            except PermissionError as e:
+                if attempt < max_retries - 1:
+                    print(f"Датасет зайнятий, спроба {attempt + 1}/{max_retries}...")
+                    time.sleep(1.0)
+                else:
+                    print(f"Не можу очистити датасет повністю")
+                    print("Використовую безпечне очищення...")
+                    return safe_clear_dataset(output_dir)
+            except Exception as e:
+                print(f"Помилка очищення датасету: {e}")
+                return False
     return False
 
 def process_all_recordings(input_dir, output_dir, clear_all=False):
+    """Обробка всіх записів"""
     processor = AudioProcessor()
     
     if clear_all:
@@ -520,12 +546,13 @@ def process_all_recordings(input_dir, output_dir, clear_all=False):
         except Exception as e:
             print(f"Помилка при обробці {filename}: {e}")
     
-    print(f"\nОБРОБКА ЗАВЕРШЕНА!")
+    print(f"\nОБРОБКА ЗАВЕРШЕНА")
     print(f"Успішно оброблено: {successful_files}/{len(wav_files)} файлів")
     print(f"Загалом створено: {total_processed} сегментів")
-    print(f"Датасет поповнено новими даними")
+    print(f"Датасет готовий для тренування CNN")
 
 def show_expected_filenames():
+    """Показати очікувані назви файлів"""
     intervals = ['perf8', 'min2', 'maj2', 'min3', 'maj3', 'perf4', 'tritone', 'perf5', 'min6', 'maj6', 'min7', 'maj7']
     dynamics = ['soft', 'hard']
     
@@ -548,7 +575,9 @@ if __name__ == "__main__":
     output_directory = "dataset-preparation/processed-segments"
     
     if os.path.exists(input_directory):
-        process_all_recordings(input_directory, output_directory)
+        process_all_recordings(input_directory, output_directory, clear_all=True)
     else:
-        print(f"Папка {input_directory} не існує!")
+        print(f"Папка {input_directory} не існує")
         print("Створіть структуру і помістіть wav файли")
+        Path(input_directory).mkdir(parents=True, exist_ok=True)
+        print(f"Папка {input_directory} створена")
