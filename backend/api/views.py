@@ -414,6 +414,8 @@ class CreateTestSessionView(APIView):
         base_notes = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
         octaves = [3, 4, 5]
         
+        created_questions = []
+        
         for i in range(session.total_questions):
             interval_type = random.choice(available_intervals)
             base_note = random.choice(base_notes)
@@ -423,15 +425,20 @@ class CreateTestSessionView(APIView):
             target_note = self._calculate_target_note(base_note, interval_type)
             target_note_with_octave = f"{target_note}{octave}"
             
-            TestQuestion.objects.create(
+            question = TestQuestion.objects.create(
                 session=session,
                 question_number=i + 1,
                 interval_type=interval_type,
                 base_note=base_note_with_octave,
                 target_note=target_note_with_octave,
-                harmonic_audio_url=f"/api/testing/audio/placeholder_harmonic_{i+1}.wav",
-                melodic_audio_url=f"/api/testing/audio/placeholder_melodic_{i+1}.wav"
+                harmonic_audio_url="",
+                melodic_audio_url=""
             )
+            created_questions.append(question)
+        
+        self._generate_test_audio(session)
+        
+        return created_questions
     
     def _create_note_questions(self, session, data):
         """Створення питань для тесту відтворення нот"""
@@ -494,6 +501,46 @@ class CreateTestSessionView(APIView):
         note_index = (9 + semitones_from_a4) % 12  # A=9 в масиві нот
         
         return f"{notes[note_index]}{octave}"
+    
+    def _generate_test_audio(self, session):
+        """Генерація аудіофайлів для питань тесту"""
+        from .views import GenerateIntervalsView
+        
+        audio_generator = GenerateIntervalsView()
+        audio_generator.audio_dir = os.path.join(settings.MEDIA_ROOT, 'testing_audio')
+        os.makedirs(audio_generator.audio_dir, exist_ok=True)
+        
+        user_audio_dir = os.path.join(audio_generator.audio_dir, str(session.user.id))
+        if os.path.exists(user_audio_dir):
+            shutil.rmtree(user_audio_dir)
+        os.makedirs(user_audio_dir, exist_ok=True)
+        
+        for question in session.questions.all():
+            if session.test_type == 'interval_recognition':
+                base_freq = audio_generator.get_note_frequency(question.base_note[0])
+                target_freq = audio_generator.get_note_frequency(question.target_note[0])
+                
+                base_tone = audio_generator.generate_piano_tone(base_freq)
+                target_tone = audio_generator.generate_piano_tone(target_freq)
+                
+                harmonic_audio = (base_tone + target_tone) / 2
+                melodic_audio = np.concatenate([base_tone, target_tone])
+                
+                harmonic_filename = f"question_{question.id}_harmonic.wav"
+                melodic_filename = f"question_{question.id}_melodic.wav"
+                
+                audio_generator.save_audio(
+                    harmonic_audio, 
+                    os.path.join(str(session.user.id), harmonic_filename)
+                )
+                audio_generator.save_audio(
+                    melodic_audio, 
+                    os.path.join(str(session.user.id), melodic_filename)
+                )
+                
+                question.harmonic_audio_url = f"/api/testing/audio/{session.user.id}/{harmonic_filename}"
+                question.melodic_audio_url = f"/api/testing/audio/{session.user.id}/{melodic_filename}"
+                question.save()
 
 
 class SubmitAnswerView(APIView):
