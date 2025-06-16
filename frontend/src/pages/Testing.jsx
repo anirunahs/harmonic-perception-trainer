@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, RotateCcw, CheckCircle, Trophy, Star } from "lucide-react";
+import { ChevronLeft, RotateCcw, Play } from "lucide-react";
 import Header from "../components/Header";
-import IntervalRecognitionTest from "../components/testing/IntervalRecognitionTest";
+import TestTypeSelection from "../components/testing/TestTypeSelection";
+import TestSettings from "../components/testing/TestSettings";
+import TestSession from "../components/testing/TestSession";
+import TestResults from "../components/testing/TestResults";
 import { useTesting } from "../hooks/useTesting";
 import LoadingIndicator from "../components/LoadingIndicator";
 
@@ -10,9 +13,16 @@ const Testing = () => {
   const [testSettings, setTestSettings] = useState({
     totalQuestions: 10,
     intervals: [],
-    difficulty: 'medium'
+    difficulty: "medium",
+    timeLimit: null,
+    showProgress: true,
+    autoNext: false,
+    randomOrder: false,
+    includeReferenceNote: true,
   });
   const [showResults, setShowResults] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(null);
+  const [isPaused, setIsPaused] = useState(false);
 
   const {
     currentSession,
@@ -29,40 +39,30 @@ const Testing = () => {
     previousQuestion,
     resetTest,
     getTestProgress,
-    getCorrectAnswersCount
+    getCorrectAnswersCount,
+    setError
   } = useTesting();
 
-  const testTypes = [
-    {
-      id: 'interval_recognition',
-      name: 'Розпізнавання інтервалів',
-      description: 'Прослухайте музичний інтервал та оберіть правильну назву',
-      icon: "M",
-      difficulty: 'medium'
-    },
-    {
-      id: 'note_reproduction',
-      name: 'Відтворення нот',
-      description: 'Прослухайте ноту та відтворіть її голосом',
-      icon: "Г",
-      difficulty: 'hard'
-    }
+  const intervals = [
+    { id: "minor_second", name: "Мала секунда", difficulty: "hard", semitones: 1 },
+    { id: "major_second", name: "Велика секунда", difficulty: "medium", semitones: 2 },
+    { id: "minor_third", name: "Мала терція", difficulty: "easy", semitones: 3 },
+    { id: "major_third", name: "Велика терція", difficulty: "easy", semitones: 4 },
+    { id: "perfect_fourth", name: "Чиста кварта", difficulty: "easy", semitones: 5 },
+    { id: "tritone", name: "Тритон", difficulty: "hard", semitones: 6 },
+    { id: "perfect_fifth", name: "Чиста квінта", difficulty: "easy", semitones: 7 },
+    { id: "minor_sixth", name: "Мала секста", difficulty: "medium", semitones: 8 },
+    { id: "major_sixth", name: "Велика секста", difficulty: "medium", semitones: 9 },
+    { id: "minor_seventh", name: "Мала септима", difficulty: "hard", semitones: 10 },
+    { id: "major_seventh", name: "Велика септима", difficulty: "hard", semitones: 11 },
+    { id: "perfect_octave", name: "Чиста октава", difficulty: "easy", semitones: 12 },
   ];
 
-  const intervals = [
-    { id: "minor_second", name: "Мала секунда" },
-    { id: "major_second", name: "Велика секунда" },
-    { id: "minor_third", name: "Мала терція" },
-    { id: "major_third", name: "Велика терція" },
-    { id: "perfect_fourth", name: "Чиста кварта" },
-    { id: "tritone", name: "Тритон" },
-    { id: "perfect_fifth", name: "Чиста квінта" },
-    { id: "minor_sixth", name: "Мала секста" },
-    { id: "major_sixth", name: "Велика секста" },
-    { id: "minor_seventh", name: "Мала септима" },
-    { id: "major_seventh", name: "Велика септима" },
-    { id: "perfect_octave", name: "Чиста октава" }
-  ];
+  const difficultyPresets = {
+    easy: intervals.filter(i => i.difficulty === "easy").map(i => i.id),
+    medium: intervals.filter(i => ["easy", "medium"].includes(i.difficulty)).map(i => i.id),
+    hard: intervals.map(i => i.id)
+  };
 
   useEffect(() => {
     if (sessionCompleted && results) {
@@ -70,19 +70,54 @@ const Testing = () => {
     }
   }, [sessionCompleted, results]);
 
+  useEffect(() => {
+    if (currentSession && testSettings.timeLimit) {
+      setTimeLeft(testSettings.timeLimit);
+    }
+  }, [currentSession, testSettings.timeLimit]);
+
+  useEffect(() => {
+    if (currentSession && testSettings.timeLimit && !isPaused && !sessionCompleted) {
+      const timer = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            handleTimeUp();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }
+  }, [currentSession, testSettings.timeLimit, isPaused, sessionCompleted]);
+
+  const handleTimeUp = () => {
+    console.log("Час вийшов!");
+  };
+
   const handleStartTest = async () => {
     if (!selectedTestType) return;
 
     try {
       await createTestSession(selectedTestType, testSettings);
+      if (testSettings.timeLimit) {
+        setTimeLeft(testSettings.timeLimit);
+      }
     } catch (error) {
       console.error('Помилка створення тесту:', error);
     }
   };
 
-  const handleAnswerSubmit = async (answer, recordedFrequency = null) => {
+  const handleAnswerSubmit = async (answer, confidence = null, recordedFrequency = null) => {
     try {
-      await submitAnswer(answer, recordedFrequency);
+      const result = await submitAnswer(answer, recordedFrequency, confidence);
+      
+      if (testSettings.autoNext && !result.session_completed) {
+        setTimeout(() => {
+          nextQuestion();
+        }, 1500);
+      }
     } catch (error) {
       console.error('Помилка відправки відповіді:', error);
     }
@@ -92,189 +127,66 @@ const Testing = () => {
     resetTest();
     setSelectedTestType(null);
     setShowResults(false);
+    setTimeLeft(null);
+    setIsPaused(false);
   };
 
-  const handleIntervalToggle = (intervalId) => {
-    setTestSettings(prev => ({
-      ...prev,
-      intervals: prev.intervals.includes(intervalId)
-        ? prev.intervals.filter(id => id !== intervalId)
-        : [...prev.intervals, intervalId]
-    }));
+  const handleUpdateSettings = (newSettings) => {
+    setTestSettings(prev => ({ ...prev, ...newSettings }));
   };
 
-  const handleSelectAllIntervals = () => {
-    setTestSettings(prev => ({
-      ...prev,
-      intervals: intervals.map(interval => interval.id)
-    }));
+  const togglePause = () => {
+    setIsPaused(prev => !prev);
   };
 
-  const handleClearIntervals = () => {
-    setTestSettings(prev => ({
-      ...prev,
-      intervals: []
-    }));
-  };
-
-  const progress = getTestProgress();
-  const correctAnswers = getCorrectAnswersCount();
-
-  // Результати
+  // Результат
   if (showResults && results) {
     return (
       <>
         <Header />
         <div className="testing-page">
           <div className="testing-page__container">
-            <div className="test-results">
-              <div className="test-results__header">
-                <Trophy className="results-icon" />
-                <h1 className="results-title">Результати тесту</h1>
-                <p className="results-subtitle">
-                  {testTypes.find(t => t.id === results.test_type)?.name}
-                </p>
-              </div>
-
-              <div className="test-results__stats">
-                <div className="stats-grid">
-                  <div className="stat-card">
-                    <div className="stat-value">{results.correct_answers}</div>
-                    <div className="stat-label">Правильних відповідей</div>
-                  </div>
-                  
-                  <div className="stat-card">
-                    <div className="stat-value">{results.total_questions}</div>
-                    <div className="stat-label">Загальна кількість</div>
-                  </div>
-                  
-                  <div className="stat-card">
-                    <div className="stat-value">{results.accuracy_percentage.toFixed(1)}%</div>
-                    <div className="stat-label">Точність</div>
-                  </div>
-                  
-                  <div className="stat-card">
-                    <div className="stat-value">{results.experience_gained}</div>
-                    <div className="stat-label">Досвід (+XP)</div>
-                  </div>
-                </div>
-
-                <div className="accuracy-bar">
-                  <div className="accuracy-bar__fill" style={{ width: `${results.accuracy_percentage}%` }} />
-                  <span className="accuracy-bar__text">{results.accuracy_percentage.toFixed(1)}%</span>
-                </div>
-              </div>
-
-              <div className="test-results__actions">
-                <button
-                  className="btn btn--primary btn--lg"
-                  onClick={() => {
-                    setShowResults(false);
-                    handleStartTest();
-                  }}
-                >
-                  <RotateCcw />
-                  <span>Пройти ще раз</span>
-                </button>
-
-                <button
-                  className="btn btn--ghost btn--lg"
-                  onClick={handleReturnToMenu}
-                >
-                  <ChevronLeft />
-                  <span>Назад до меню</span>
-                </button>
-              </div>
-            </div>
+            <TestResults
+              results={results}
+              testType={selectedTestType}
+              intervals={intervals}
+              answers={answers}
+              onRetry={() => {
+                setShowResults(false);
+                handleStartTest();
+              }}
+              onReturnToMenu={handleReturnToMenu}
+            />
           </div>
         </div>
       </>
     );
   }
 
-  // Показати тест
+  // Активний тест
   if (currentSession && currentQuestion) {
     return (
       <>
         <Header />
         <div className="testing-page">
           <div className="testing-page__container">
-            <div className="test-session">
-              <div className="test-session__header">
-                <div className="test-info">
-                  <h1 className="test-title">
-                    {testTypes.find(t => t.id === currentSession.test_type)?.name}
-                  </h1>
-                  <div className="test-progress">
-                    <span className="progress-text">
-                      Питання {questionIndex + 1} з {currentSession.total_questions}
-                    </span>
-                    <div className="progress-bar">
-                      <div 
-                        className="progress-bar__fill" 
-                        style={{ width: `${progress.percentage}%` }} 
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  className="btn btn--ghost"
-                  onClick={handleReturnToMenu}
-                >
-                  <ChevronLeft />
-                  <span>Вийти з тесту</span>
-                </button>
-              </div>
-
-              <div className="test-session__content">
-                {currentSession.test_type === 'interval_recognition' ? (
-                  <IntervalRecognitionTest
-                    question={currentQuestion}
-                    onAnswer={handleAnswerSubmit}
-                    isSubmitting={isLoading}
-                  />
-                ) : currentSession.test_type === 'note_reproduction' ? (
-                  <NoteReproductionTest
-                    question={currentQuestion}
-                    onAnswer={handleAnswerSubmit}
-                    isSubmitting={isLoading}
-                  />
-                ) : null}
-              </div>
-
-              <div className="test-session__navigation">
-                <button
-                  className="btn btn--ghost"
-                  onClick={previousQuestion}
-                  disabled={questionIndex === 0}
-                >
-                  <ChevronLeft />
-                  <span>Попереднє</span>
-                </button>
-
-                <div className="question-indicator">
-                  <span>{questionIndex + 1} / {currentSession.total_questions}</span>
-                </div>
-
-                <button
-                  className="btn btn--ghost"
-                  onClick={nextQuestion}
-                  disabled={questionIndex >= currentSession.total_questions - 1}
-                >
-                  <span>Наступне</span>
-                  <ChevronRight />
-                </button>
-              </div>
-
-              {error && (
-                <div className="test-session__error">
-                  <div className="alert alert--error">
-                    <span>{error}</span>
-                  </div>
-                </div>
-              )}
-            </div>
+            <TestSession
+              session={currentSession}
+              currentQuestion={currentQuestion}
+              questionIndex={questionIndex}
+              timeLeft={timeLeft}
+              isPaused={isPaused}
+              testSettings={testSettings}
+              intervals={intervals}
+              isLoading={isLoading}
+              error={error}
+              onAnswerSubmit={handleAnswerSubmit}
+              onNextQuestion={nextQuestion}
+              onPreviousQuestion={previousQuestion}
+              onTogglePause={togglePause}
+              onReturnToMenu={handleReturnToMenu}
+              setError={setError}
+            />
           </div>
         </div>
       </>
@@ -290,156 +202,26 @@ const Testing = () => {
           <div className="testing-page__header">
             <h1 className="testing-page__title">Тестування знань</h1>
             <p className="testing-page__subtitle">
-              Оберіть тип тесту та налаштуйте параметри для перевірки ваших навичок
+              Перевірте свої музичні навички та отримайте детальний аналіз результатів
             </p>
           </div>
 
           <div className="testing-page__content">
-            <div className="test-type-selection">
-              <h2 className="section-title">Тип тесту</h2>
-              
-              <div className="test-types-grid">
-                {testTypes.map((testType) => (
-                  <button
-                    key={testType.id}
-                    className={`test-type-card ${
-                      selectedTestType === testType.id ? 'test-type-card--selected' : ''
-                    }`}
-                    onClick={() => setSelectedTestType(testType.id)}
-                  >
-                    <div className="test-type-card__icon">{testType.icon}</div>
-                    <h3 className="test-type-card__name">{testType.name}</h3>
-                    <p className="test-type-card__description">{testType.description}</p>
-                    <div className="test-type-card__difficulty">
-                      <Star />
-                      <span>Складність: {testType.difficulty === 'easy' ? 'Легка' : testType.difficulty === 'medium' ? 'Середня' : 'Важка'}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
+            <TestTypeSelection
+              selectedTestType={selectedTestType}
+              onSelectTestType={setSelectedTestType}
+            />
 
             {selectedTestType && (
-              <div className="test-settings">
-                <h2 className="section-title">Налаштування</h2>
-
-                <div className="settings-grid">
-                  <div className="setting-group">
-                    <label className="setting-label">Кількість питань</label>
-                    <select
-                      className="setting-select"
-                      value={testSettings.totalQuestions}
-                      onChange={(e) => setTestSettings(prev => ({
-                        ...prev,
-                        totalQuestions: parseInt(e.target.value)
-                      }))}
-                    >
-                      <option value={5}>5 питань</option>
-                      <option value={10}>10 питань</option>
-                      <option value={15}>15 питань</option>
-                      <option value={20}>20 питань</option>
-                    </select>
-                  </div>
-
-                  <div className="setting-group">
-                    <label className="setting-label">Складність</label>
-                    <select
-                      className="setting-select"
-                      value={testSettings.difficulty}
-                      onChange={(e) => setTestSettings(prev => ({
-                        ...prev,
-                        difficulty: e.target.value
-                      }))}
-                    >
-                      <option value="easy">Легка</option>
-                      <option value="medium">Середня</option>
-                      <option value="hard">Важка</option>
-                    </select>
-                  </div>
-
-                  {selectedTestType === 'interval_recognition' && (
-                    <div className="setting-group setting-group--full">
-                      <div className="setting-header">
-                        <label className="setting-label">Інтервали для тестування</label>
-                        <div className="setting-actions">
-                          <button 
-                            className="btn btn--ghost btn--sm"
-                            onClick={handleSelectAllIntervals}
-                          >
-                            Обрати всі
-                          </button>
-                          <button 
-                            className="btn btn--ghost btn--sm"
-                            onClick={handleClearIntervals}
-                          >
-                            Очистити
-                          </button>
-                        </div>
-                      </div>
-                      
-                      <div className="intervals-selection">
-                        {intervals.map(interval => (
-                          <label key={interval.id} className="interval-checkbox">
-                            <input
-                              type="checkbox"
-                              checked={testSettings.intervals.includes(interval.id)}
-                              onChange={() => handleIntervalToggle(interval.id)}
-                            />
-                            <span className="interval-checkbox__checkmark"></span>
-                            <span className="interval-checkbox__label">{interval.name}</span>
-                          </label>
-                        ))}
-                      </div>
-                      
-                      {testSettings.intervals.length === 0 && (
-                        <div className="setting-warning">
-                          Оберіть хоча б один інтервал для тестування
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {selectedTestType === 'note_reproduction' && (
-                    <div className="setting-group setting-group--full">
-                      <div className="setting-info">
-                        <h4>Інформація про тест</h4>
-                        <p>
-                          Тест використовуватиме ваш налаштований вокальний діапазон. 
-                          Якщо ви ще не налаштували його, будуть використані стандартні ноти (C3-C5).
-                        </p>
-                        <p>
-                          <strong>Рекомендація:</strong> Налаштуйте свій вокальний діапазон у профілі для більш комфортного тестування.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {selectedTestType && (
-              <div className="test-start">
-                <button
-                  className="btn btn--primary btn--lg"
-                  onClick={handleStartTest}
-                  disabled={
-                    isLoading || 
-                    (selectedTestType === 'interval_recognition' && testSettings.intervals.length === 0)
-                  }
-                >
-                  {isLoading ? (
-                    <>
-                      <LoadingIndicator size="small" />
-                      <span>Створення тесту...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle />
-                      <span>Розпочати тест</span>
-                    </>
-                  )}
-                </button>
-              </div>
+              <TestSettings
+                testType={selectedTestType}
+                settings={testSettings}
+                intervals={intervals}
+                difficultyPresets={difficultyPresets}
+                onUpdateSettings={handleUpdateSettings}
+                isLoading={isLoading}
+                onStartTest={handleStartTest}
+              />
             )}
 
             {error && (
