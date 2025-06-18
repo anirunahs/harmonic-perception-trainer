@@ -19,5 +19,15 @@ backend/media/
 
 # Датасет
 dataset-preparation/raw-recordings/
+dataset-preparation/normalized-recordings/
 dataset-preparation/processed-segments/
 dataset-preparation/spectrograms/
+dataset-preparation/fft-dataset/
+
+# Модель
+*.keras
+*.h5
+*.joblib
+*.pkl
+*_metadata.json
+*.png
