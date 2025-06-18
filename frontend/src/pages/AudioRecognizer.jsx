@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { Mic, MicOff, Play, Square, RotateCcw, Volume2 } from "lucide-react";
+import { Mic, MicOff, Play, Square, RotateCcw, Volume2, Loader, 
+         AlertCircle, CheckCircle, Info, Zap } from "lucide-react";
 import Header from "../components/Header";
+import api from "../api";
 
 const AudioRecognizer = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -45,9 +47,7 @@ const AudioRecognizer = () => {
   }, []);
 
   const startRecording = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+    try { 
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -58,7 +58,7 @@ const AudioRecognizer = () => {
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         setAudioBlob(audioBlob);
         setHasRecording(true);
         setRecordingStatus('completed');
@@ -71,7 +71,7 @@ const AudioRecognizer = () => {
       startTimer();
     } catch (error) {
       console.error('Error accessing microphone:', error);
-      alert('Помилка доступу до мікрофона. Перевірте дозволи.');
+      setError(`Помилка доступу до мікрофона: ${error.message}`);
     }
   }, [startTimer]);
 
@@ -108,12 +108,41 @@ const AudioRecognizer = () => {
     }
   }, [audioBlob]);
 
-  const analyzeAudio = useCallback(() => {
+  const audioToBase64 = useCallback((blob) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const arrayBuffer = reader.result;
+        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(blob);
+    });
+  }, []);
+
+  const analyzeAudio = useCallback(async () => {
     if (!audioBlob) return;
     
-    // TODO: Аудіоаналіз
-    alert('Функція аналізу аудіо!');
-  }, [audioBlob]);
+    setError(null);
+
+    try {
+      const audioBase64 = await audioToBase64(audioBlob);
+      
+      const requestData = {
+        audio_data: audioBase64,
+        format: 'webm'
+      };
+
+      const response = await api.post(endpoint, requestData);
+      
+
+    } catch (error) {
+      console.error('Error analyzing audio:', error);
+      setError(error.response?.data?.error || 'Помилка аналізу аудіо');
+    } finally {
+    }
+  }, [audioBlob, audioToBase64]);
 
   useEffect(() => {
     return () => {
@@ -139,7 +168,7 @@ const AudioRecognizer = () => {
           <div className="audio-recognizer__header">
             <h1 className="audio-recognizer__title">Розпізнавання музичних інтервалів</h1>
             <p className="audio-recognizer__subtitle">
-              Запишіть звук та отримайте аналіз музичного інтервалу
+              Запишіть звук та отримайте передбачення музичного інтервалу
             </p>
           </div>
 
@@ -204,6 +233,67 @@ const AudioRecognizer = () => {
               </div>
             </div>
 
+            { (
+              <div className="results-panel">
+                <h2 className="results-panel__title">Результат розпізнавання</h2>
+                
+                { (
+                  <div className="recognition-success">
+                    <div className="main-result">
+                      <div className="interval-display">
+                        <div className="interval-display__name">
+                        </div>
+                        <div className="interval-display__confidence">
+                          Впевненість: %
+                        </div>
+                      </div>
+                    </div>
+
+                    { (
+                      <div className="alternative-results">
+                        <h3>Альтернативні варіанти:</h3>
+                        <div className="alternatives-list">
+                          
+                        </div>
+                      </div>
+                    )}
+
+                    { (
+                      <div className="recommendations">
+                        <h3>Рекомендації:</h3>
+                        <ul className="recommendations-list">
+                          
+                        </ul>
+                      </div>
+                    )}
+
+                    { (
+                      <div className="processing-info">
+                        <div className="info-grid">
+                          <div className="info-item">
+                            <span className="info-label">Сегментів проаналізовано:</span>
+                            <span className="info-value"></span>
+                          </div>
+                          <div className="info-item">
+                            <span className="info-label">Час обробки:</span>
+                            <span className="info-value">
+                              
+                            </span>
+                          </div>
+                          <div className="info-item">
+                            <span className="info-label">Якість запису:</span>
+                            <span className="info-value">
+                              %
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) }
+              </div>
+            )}
+
             {recordingStatus === 'completed' && (
               <div className="audio-recognizer__status">
                 <div className="status-card status-card--success">
@@ -215,6 +305,20 @@ const AudioRecognizer = () => {
                     <p className="status-card__description">
                       Тривалість: {formatTime(seconds)}. Натисніть "Аналізувати" для розпізнавання інтервалу.
                     </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            { (
+              <div className="audio-recognizer__status">
+                <div className="status-card status-card--error">
+                  <div className="status-card__icon">
+                    <AlertCircle />
+                  </div>
+                  <div className="status-card__content">
+                    <h3 className="status-card__title">Помилка</h3>
+                    <p className="status-card__description"></p>
                   </div>
                 </div>
               </div>
