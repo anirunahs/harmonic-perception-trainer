@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Mic, MicOff, Play, Square, RotateCcw, Volume2, Loader, 
          AlertCircle, CheckCircle, Info, Zap, Settings, TrendingUp } from "lucide-react";
 import Header from "../components/Header";
+import RecognitionResults from "../components/recognition/RecognitionResults";
 import api from "../api";
 
 const AudioRecognizer = () => {
@@ -17,7 +18,7 @@ const AudioRecognizer = () => {
   const [audioQuality, setAudioQuality] = useState(null);
   const [processingSettings, setProcessingSettings] = useState({
     preprocessing_level: 'standard',
-    max_segments: 1,
+    max_segments: 3,
     noise_reduction: true
   });
 
@@ -420,6 +421,16 @@ const AudioRecognizer = () => {
     }
   };
 
+  const renderResults = () => {
+    return (
+      <RecognitionResults 
+        result={analysisResult}
+        isAnalyzing={isAnalyzing}
+        error={error}
+      />
+    );
+  };
+
   return (
     <>
       <Header />
@@ -559,6 +570,8 @@ const AudioRecognizer = () => {
                 </div>
               </div>
             </div>
+
+            {renderResults()}
 
             {recordingStatus === 'completed' && !analysisResult && (
               <div className="audio-recognizer__status">
