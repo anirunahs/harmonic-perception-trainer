@@ -203,3 +203,99 @@ class IntervalRecognitionView(APIView):
             },
             'recommendations': self._generate_recommendations(recognition_results, processing_result)
         }
+    
+    def _generate_recommendations(self, recognition_results, processing_result):
+        """Генерація рекомендацій для користувача"""
+        recommendations = []
+        
+        avg_audio_quality = np.mean([r['quality_metrics']['audio_quality'] 
+                                   for r in recognition_results])
+        avg_prediction_confidence = np.mean([r['quality_metrics']['prediction_confidence'] 
+                                           for r in recognition_results])
+        
+        if avg_audio_quality < 0.5:
+            recommendations.append({
+                'type': 'audio_quality',
+                'message': 'Низька якість аудіо. Спробуйте записати в тишому місці.',
+                'severity': 'warning'
+            })
+        
+        if avg_prediction_confidence < 0.6:
+            recommendations.append({
+                'type': 'recognition',
+                'message': 'Низька впевненість розпізнавання. Переконайтеся, що граєте чіткі інтервали.',
+                'severity': 'info'
+            })
+        
+        if processing_result.quality_score < 0.4:
+            recommendations.append({
+                'type': 'recording',
+                'message': 'Спробуйте записати інтервали повільніше та чіткіше.',
+                'severity': 'warning'
+            })
+        
+        if len(recognition_results) == 1 and recognition_results[0]['duration'] < 1.5:
+            recommendations.append({
+                'type': 'duration',
+                'message': 'Зробіть довший запис для кращого аналізу.',
+                'severity': 'info'
+            })
+        
+        return recommendations
+
+class QuickRecognitionView(APIView):
+    """Швидке розпізнавання з мінімальною обробкою"""
+    
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        """Швидкий аналіз (тестування)"""
+        serializer = AudioRecognitionSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            import base64
+            start_time = time.time()
+            
+            audio_b64 = serializer.validated_data['audio_data']
+            audio_data = base64.b64decode(audio_b64)
+            
+            processor = RecognitionAudioProcessor()
+            processor.noise_gate_threshold = -70
+            
+            audio = processor.load_audio_from_blob(audio_data)
+            
+            audio = processor.remove_dc_offset(audio)
+            audio = processor.normalize_rms(audio)
+            
+            target_samples = int(2.0 * processor.sr)
+            if len(audio) >= target_samples:
+                start = (len(audio) - target_samples) // 2
+                audio_segment = audio[start:start + target_samples]
+            else:
+                audio_segment = np.pad(audio, (0, target_samples - len(audio)), mode='constant')
+            
+            feature_extractor = FFTFeatureExtractor()
+            features = feature_extractor.extract_features(audio_segment)
+            
+            classifier = IntervalClassifier()
+            prediction = classifier.predict(features)
+            
+            processing_time = time.time() - start_time
+            
+            return Response({
+                'status': 'success',
+                'mode': 'quick',
+                'prediction': prediction['best_prediction'],
+                'alternatives': prediction['predictions'][:3],
+                'processing_time': processing_time,
+                'note': 'Швидкий режим - спрощена обробка'
+            })
+            
+        except Exception as e:
+            logger.error(f"Помилка швидкого розпізнавання: {e}")
+            return Response(
+                {'error': f'Помилка обробки: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
