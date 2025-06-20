@@ -1,5 +1,5 @@
 import React from 'react';
-import { TrendingUp, Clock, Volume2, AlertCircle, Info, CheckCircle, AlertTriangle } from 'lucide-react';
+import { TrendingUp, Clock, Volume2, AlertCircle, Info, CheckCircle, AlertTriangle, Music, Target, Award } from 'lucide-react';
 
 const IntervalNames = {
   'minor_2nd': 'Мала секунда',
@@ -25,7 +25,7 @@ const RecognitionResults = ({ result, isAnalyzing, error }) => {
             <div className="spinner"></div>
           </div>
           <h2>Аналізуємо запис...</h2>
-          <p>Обробка аудіо та розпізнавання інтервалу</p>
+          <p>Обробка аудіо та розпізнавання музичних інтервалів</p>
         </div>
       </div>
     );
@@ -64,6 +64,19 @@ const RecognitionResults = ({ result, isAnalyzing, error }) => {
     if (score >= 0.6) return 'Хороша';
     if (score >= 0.4) return 'Задовільна';
     return 'Низька';
+  };
+
+  const getRankIcon = (rank) => {
+    switch (rank) {
+      case 1:
+        return <Award className="rank-icon rank-icon--gold" />;
+      case 2:
+        return <Target className="rank-icon rank-icon--silver" />;
+      case 3:
+        return <Music className="rank-icon rank-icon--bronze" />;
+      default:
+        return <div className="rank-number">{rank}</div>;
+    }
   };
 
   const getSeverityIcon = (severity) => {
@@ -137,6 +150,10 @@ const RecognitionResults = ({ result, isAnalyzing, error }) => {
         <div className="recognition-success">
           <div className="main-result">
             <div className="interval-display">
+              <div className="interval-display__header">
+                <Award className="main-result-icon" />
+                <span className="main-result-label">Найкращий результат</span>
+              </div>
               <div className="interval-display__name">
                 {getIntervalDisplayName(result.best_prediction.interval)}
               </div>
@@ -160,29 +177,87 @@ const RecognitionResults = ({ result, isAnalyzing, error }) => {
             </div>
           </div>
 
-          {result.alternative_predictions && result.alternative_predictions.length > 0 && (
-            <div className="alternative-results">
-              <h3>Альтернативні варіанти:</h3>
-              <div className="alternatives-list">
-                {result.alternative_predictions.map((pred, index) => (
-                  <div key={index} className="alternative-item">
-                    <div className="alternative-item__info">
-                      <span className="alternative-item__name">
-                        {getIntervalDisplayName(pred.interval)}
-                      </span>
-                      <span className="alternative-item__subtitle">
-                        {pred.interval}
-                      </span>
-                    </div>
-                    <div className="alternative-item__stats">
-                      <span className="alternative-item__confidence">
-                        {(pred.confidence * 100).toFixed(1)}%
-                      </span>
-                      {pred.occurrence_count && (
-                        <span className="alternative-item__count">
-                          ({pred.occurrence_count} сегм.)
+          {result.segments_analysis && result.segments_analysis.length > 0 && (
+            <div className="segments-analysis">
+              <h3 className="segments-analysis__title">
+                <Volume2 />
+                Аналіз по сегментах
+                <span className="segments-count">({result.segments_analysis.length} сегм.)</span>
+              </h3>
+              
+              <div className="segments-grid">
+                {result.segments_analysis.map((segment, index) => (
+                  <div key={segment.segment_id} className="segment-card">
+                    <div className="segment-card__header">
+                      <div className="segment-card__info">
+                        <h4 className="segment-card__title">
+                          Сегмент {segment.segment_id}
+                        </h4>
+                        <span className="segment-card__time">
+                          {segment.time_range} ({segment.duration})
                         </span>
-                      )}
+                      </div>
+                      <div className="segment-card__quality">
+                        <div 
+                          className="quality-indicator-small"
+                          style={{ 
+                            backgroundColor: getConfidenceColor(segment.audio_quality)
+                          }}
+                        />
+                        <span className="quality-text-small">
+                          {(segment.audio_quality * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="segment-card__best">
+                      <div className="best-prediction">
+                        <Award className="best-prediction__icon" />
+                        <div className="best-prediction__content">
+                          <div className="best-prediction__name">
+                            {getIntervalDisplayName(segment.best_interval)}
+                          </div>
+                          <div className="best-prediction__confidence">
+                            {(segment.best_confidence * 100).toFixed(1)}%
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="segment-card__predictions">
+                      <h5 className="predictions-title">ТОП-3 варіанти:</h5>
+                      <div className="predictions-list">
+                        {segment.top_predictions.slice(0, 3).map((prediction, predIndex) => (
+                          <div 
+                            key={predIndex} 
+                            className={`prediction-item ${predIndex === 0 ? 'prediction-item--best' : ''}`}
+                          >
+                            <div className="prediction-item__rank">
+                              {getRankIcon(predIndex + 1)}
+                            </div>
+                            <div className="prediction-item__content">
+                              <div className="prediction-item__name">
+                                {getIntervalDisplayName(prediction.interval)}
+                              </div>
+                              <div className="prediction-item__subtitle">
+                                {prediction.interval}
+                              </div>
+                            </div>
+                            <div className="prediction-item__confidence">
+                              <div 
+                                className="confidence-mini-bar"
+                                style={{
+                                  width: `${prediction.confidence * 100}%`,
+                                  backgroundColor: getConfidenceColor(prediction.confidence)
+                                }}
+                              />
+                              <span className="confidence-percentage">
+                                {(prediction.confidence * 100).toFixed(1)}%
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -190,14 +265,79 @@ const RecognitionResults = ({ result, isAnalyzing, error }) => {
             </div>
           )}
 
-          {result.recommendations && result.recommendations.length > 0 && (
-            <div className="recommendations">
-              <h3>Рекомендації для покращення:</h3>
-              <div className="recommendations-list">
-                {result.recommendations.map((rec, index) => (
-                  <div key={index} className={`recommendation recommendation--${rec.severity}`}>
-                    {getSeverityIcon(rec.severity)}
-                    <span>{rec.message}</span>
+          {result.overall_top_intervals && result.overall_top_intervals.length > 0 && (
+            <div className="overall-top-intervals">
+              <h3 className="overall-top-intervals__title">
+                <Target />
+                Загальний рейтинг інтервалів
+              </h3>
+              <div className="overall-intervals-list">
+                {result.overall_top_intervals.map((interval, index) => (
+                  <div key={index} className="overall-interval-item">
+                    <div className="overall-interval-item__rank">
+                      {getRankIcon(index + 1)}
+                    </div>
+                    <div className="overall-interval-item__content">
+                      <div className="overall-interval-item__name">
+                        {getIntervalDisplayName(interval.interval)}
+                      </div>
+                      <div className="overall-interval-item__subtitle">
+                        {interval.interval}
+                      </div>
+                      <div className="overall-interval-item__stats">
+                        Знайдено в {interval.segments_found_in} сегм.
+                      </div>
+                    </div>
+                    <div className="overall-interval-item__confidence">
+                      <div 
+                        className="confidence-bar-large"
+                        style={{
+                          width: `${interval.confidence * 100}%`,
+                          backgroundColor: getConfidenceColor(interval.confidence)
+                        }}
+                      />
+                      <span className="confidence-percentage-large">
+                        {(interval.confidence * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {result.mode === 'quick' && result.top_predictions && (
+            <div className="quick-mode-results">
+              <h3 className="quick-mode-results__title">
+                <Target />
+                ТОП-3 варіанти (швидкий режим)
+              </h3>
+              <div className="quick-predictions-list">
+                {result.top_predictions.map((prediction, index) => (
+                  <div key={index} className="quick-prediction-item">
+                    <div className="quick-prediction-item__rank">
+                      {getRankIcon(index + 1)}
+                    </div>
+                    <div className="quick-prediction-item__content">
+                      <div className="quick-prediction-item__name">
+                        {getIntervalDisplayName(prediction.interval)}
+                      </div>
+                      <div className="quick-prediction-item__subtitle">
+                        {prediction.interval}
+                      </div>
+                    </div>
+                    <div className="quick-prediction-item__confidence">
+                      <div 
+                        className="confidence-bar-large"
+                        style={{
+                          width: `${prediction.confidence * 100}%`,
+                          backgroundColor: getConfidenceColor(prediction.confidence)
+                        }}
+                      />
+                      <span className="confidence-percentage-large">
+                        {(prediction.confidence * 100).toFixed(1)}%
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
