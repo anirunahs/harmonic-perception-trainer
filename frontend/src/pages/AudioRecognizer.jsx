@@ -62,7 +62,7 @@ const AudioRecognizer = () => {
     audioChunksRef.current = [];
   }, []);
 
-  const setupAudioContext = useCallback(async (stream) => {
+  const setupAudioContext = async (stream) => {
     try {
       const audioContext = new (window.AudioContext || window.webkitAudioContext)({
         sampleRate: 44100
@@ -83,9 +83,9 @@ const AudioRecognizer = () => {
       console.error('Error setting up audio context:', error);
       return null;
     }
-  }, []);
+  };
 
-  const analyzeAudioQuality = useCallback(() => {
+  const analyzeAudioQuality = () => {
     if (!analyserRef.current) return null;
 
     const bufferLength = analyserRef.current.frequencyBinCount;
@@ -105,9 +105,70 @@ const AudioRecognizer = () => {
       signalToNoise: Math.round(signalToNoise * 10) / 10,
       quality: signalToNoise > 3 ? 'good' : signalToNoise > 1.5 ? 'fair' : 'poor'
     };
-  }, []);
+  };
 
-  const startRecording = useCallback(async () => {
+  const convertToWav = (audioBlob) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const arrayBuffer = reader.result;
+        
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        audioContext.decodeAudioData(arrayBuffer)
+          .then(audioBuffer => {
+            const wavBuffer = audioBufferToWav(audioBuffer);
+            const wavBlob = new Blob([wavBuffer], { type: 'audio/wav' });
+            resolve(wavBlob);
+          })
+          .catch(reject);
+      };
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(audioBlob);
+    });
+  };
+
+  const audioBufferToWav = (buffer) => {
+    const length = buffer.length;
+    const sampleRate = buffer.sampleRate;
+    const channels = buffer.numberOfChannels;
+    
+    const arrayBuffer = new ArrayBuffer(44 + length * channels * 2);
+    const view = new DataView(arrayBuffer);
+    
+    const writeString = (offset, string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    };
+    
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + length * channels * 2, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, channels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * channels * 2, true);
+    view.setUint16(32, channels * 2, true);
+    view.setUint16(34, 16, true);
+    writeString(36, 'data');
+    view.setUint32(40, length * channels * 2, true);
+    
+    let offset = 44;
+    for (let i = 0; i < length; i++) {
+      for (let channel = 0; channel < channels; channel++) {
+        const sample = Math.max(-1, Math.min(1, buffer.getChannelData(channel)[i]));
+        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+        offset += 2;
+      }
+    }
+    
+    return arrayBuffer;
+  };
+
+  const startRecording = async () => {
     try {
       setError(null);
       setRecordingStatus('initializing');
@@ -142,13 +203,22 @@ const AudioRecognizer = () => {
         }
       };
 
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { 
+      mediaRecorder.onstop = async () => {
+        const webmBlob = new Blob(audioChunksRef.current, { 
           type: 'audio/webm;codecs=opus' 
         });
-        setAudioBlob(audioBlob);
-        setHasRecording(true);
-        setRecordingStatus('completed');
+        
+        try {
+          const wavBlob = await convertToWav(webmBlob);
+          setAudioBlob(wavBlob);
+          setHasRecording(true);
+          setRecordingStatus('completed');
+        } catch (error) {
+          console.error('Error converting to WAV:', error);
+          setAudioBlob(webmBlob);
+          setHasRecording(true);
+          setRecordingStatus('completed');
+        }
         
         if (streamRef.current) {
           streamRef.current.getTracks().forEach(track => track.stop());
@@ -200,7 +270,7 @@ const AudioRecognizer = () => {
       setError(errorMessage);
       setRecordingStatus('error');
     }
-  }, [startTimer, setupAudioContext, analyzeAudioQuality]);
+  };
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
@@ -241,14 +311,6 @@ const AudioRecognizer = () => {
       try {
         const audioUrl = URL.createObjectURL(audioBlob);
         audioRef.current.src = audioUrl;
-        
-        audioRef.current.onloadstart = () => {
-          console.log('Audio loading started');
-        };
-        
-        audioRef.current.oncanplay = () => {
-          console.log('Audio can play');
-        };
         
         audioRef.current.onplay = () => {
           setIsPlaying(true);
@@ -295,10 +357,21 @@ const AudioRecognizer = () => {
   const audioToBase64 = useCallback((blob) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => {
-        const arrayBuffer = reader.result;
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-        resolve(base64);
+      reader.onload = function handleLoad() {
+        try {
+          const arrayBuffer = reader.result;
+          const uint8Array = new Uint8Array(arrayBuffer);
+
+          let binary = '';
+          for (let i = 0; i < uint8Array.length; i++) {
+            binary += String.fromCharCode(uint8Array[i]);
+          }
+
+          const base64 = btoa(binary);
+          resolve(base64);
+        } catch (error) {
+          reject(error);
+        }
       };
       reader.onerror = reject;
       reader.readAsArrayBuffer(blob);
@@ -320,7 +393,7 @@ const AudioRecognizer = () => {
       
       const requestData = {
         audio_data: audioBase64,
-        format: 'webm',
+        format: 'wav',
         preprocessing_level: processingSettings.preprocessing_level,
         max_segments: processingSettings.max_segments
       };
@@ -355,7 +428,7 @@ const AudioRecognizer = () => {
       
       const requestData = {
         audio_data: audioBase64,
-        format: 'webm'
+        format: 'wav'
       };
 
       const response = await api.post('/api/recognition/quick/', requestData);
@@ -363,7 +436,7 @@ const AudioRecognizer = () => {
         status: 'success',
         mode: 'quick',
         best_prediction: response.data.prediction,
-        alternative_predictions: response.data.alternatives || [],
+        top_predictions: response.data.top_predictions || [],
         processing_info: {
           processing_time: response.data.processing_time,
           mode: 'Швидкий режим'
@@ -380,7 +453,10 @@ const AudioRecognizer = () => {
 
   useEffect(() => {
     return () => {
-      stopTimer();
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
       
       if (mediaRecorderRef.current) {
         if (mediaRecorderRef.current.qualityInterval) {
@@ -403,7 +479,7 @@ const AudioRecognizer = () => {
         URL.revokeObjectURL(audioRef.current.src);
       }
     };
-  }, [stopTimer]);
+  }, []);
 
   const getRecordingButtonClass = () => {
     const baseClass = "record-btn";
