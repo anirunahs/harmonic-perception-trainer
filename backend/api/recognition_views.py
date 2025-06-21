@@ -4,18 +4,16 @@ import numpy as np
 import logging
 import io
 import base64
-from rest_framework import status
+from rest_framework import status, serializers
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework import serializers
 import librosa
-from scipy.signal import butter, filtfilt
 
-from backend.core.audio_processing import RecognitionAudioProcessor
-from backend.core.feature_extraction import FFTFeatureExtractor
-from backend.core.model_inference import IntervalClassifier
+from core.audio_processing import RecognitionAudioProcessor
+from core.feature_extraction import FFTFeatureExtractor  
+from core.model_inference import IntervalClassifier
 
 logger = logging.getLogger(__name__)
 
@@ -47,20 +45,35 @@ class IntervalRecognitionView(APIView):
     
     def __init__(self):
         super().__init__()
+        self.processor = None
+        self.feature_extractor = None
+        self.classifier = None
+        self.is_ready = False
+        
         try:
             self.processor = RecognitionAudioProcessor()
             self.feature_extractor = FFTFeatureExtractor()
             self.classifier = IntervalClassifier()
-            self.is_ready = True
+            
+            if self.classifier.is_loaded:
+                self.is_ready = True
+                logger.info("Система розпізнавання ініціалізована успішно")
+            else:
+                logger.error("Модель не завантажена")
+                
         except Exception as e:
-            logger.error(f"Помилка ініціалізації моделей: {e}")
+            logger.error(f"Помилка ініціалізації: {e}")
             self.is_ready = False
         
     def post(self, request):
-        """Аналіз аудіо запису"""
+        """Аналіз аудіо"""
         if not self.is_ready:
             return Response(
-                {'error': 'Модель розпізнавання недоступна'}, 
+                {
+                    'error': 'Модель розпізнавання недоступна',
+                    'details': 'Система не змогла ініціалізувати модель',
+                    'status': 'service_unavailable'
+                }, 
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
             
@@ -81,41 +94,77 @@ class IntervalRecognitionView(APIView):
             
         except Exception as e:
             logger.error(f"Помилка розпізнавання для користувача {request.user.id}: {e}")
+            
+            user_message = self._get_user_friendly_error(e)
+            
             return Response(
-                {'error': f'Помилка обробки: {str(e)}'}, 
+                {
+                    'error': user_message,
+                    'status': 'error',
+                    'technical_details': str(e) if request.user.is_staff else None
+                }, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+    def _get_user_friendly_error(self, exception):
+        """Перетворення технічних помилок в зрозумілі"""
+        error_str = str(exception).lower()
+        
+        if 'format not recognised' in error_str or 'could not open' in error_str:
+            return 'Не вдалося розпізнати формат аудіо. Спробуйте записати ще раз.'
+        elif 'tensorflow' in error_str or 'model' in error_str:
+            return 'Помилка моделі розпізнавання. Спробуйте пізніше.'
+        elif 'memory' in error_str:
+            return 'Недостатньо пам\'яті. Спробуйте зробити коротший запис.'
+        elif 'empty' in error_str or 'no data' in error_str:
+            return 'Порожній аудіо файл. Переконайтеся, що запис зроблено правильно.'
+        elif 'inputlayer' in error_str or 'batch_shape' in error_str:
+            return 'Проблема сумісності моделі.'
+        else:
+            return 'Помилка обробки аудіо. Спробуйте ще раз.'
+    
     def _process_audio_recognition(self, validated_data, user_id):
-        """Повна обробка аудіо для розпізнавання"""
+        """Обробка аудіо для розпізнавання"""
         start_time = time.time()
         
         try:
             audio_b64 = validated_data['audio_data']
-            audio_data = base64.b64decode(audio_b64)
-            
-            audio = self._load_and_preprocess_audio(audio_data, validated_data)
-            
-            if audio is None or len(audio) == 0:
+            try:
+                audio_data = base64.b64decode(audio_b64)
+            except Exception as e:
                 return {
-                    'error': 'Не вдалося завантажити аудіо дані',
+                    'error': 'Помилка декодування аудіо даних',
                     'status': 'error'
                 }
             
-            preprocessing_level = validated_data.get('preprocessing_level', 'standard')
-            self._configure_preprocessing(preprocessing_level)
+            try:
+                audio = self.processor.load_audio_from_blob(audio_data)
+                if audio is None or len(audio) == 0:
+                    raise ValueError("Порожній аудіо файл")
+            except Exception as e:
+                logger.error(f"Помилка завантаження аудіо: {e}")
+                return {
+                    'error': 'Не вдалося завантажити аудіо',
+                    'status': 'error'
+                }
             
-            processing_result = self.processor.process(audio)
+            try:
+                processing_result = self.processor.process(audio)
+            except Exception as e:
+                logger.error(f"Помилка обробки аудіо: {e}")
+                return {
+                    'error': 'Помилка обробки аудіо сигналу',
+                    'status': 'error'
+                }
             
             if not processing_result.segments:
                 return {
                     'error': 'Не знайдено музичні сегменти в записі',
-                    'warnings': processing_result.warnings,
-                    'quality_score': processing_result.quality_score,
                     'status': 'error',
                     'processing_info': {
                         'duration': processing_result.original_duration,
-                        'processing_time': processing_result.processing_time
+                        'quality_score': processing_result.quality_score,
+                        'warnings': processing_result.warnings
                     }
                 }
             
@@ -127,7 +176,14 @@ class IntervalRecognitionView(APIView):
             for i, segment in enumerate(segments_to_analyze):
                 try:
                     features = self.feature_extractor.extract_features(segment.audio)
+                    
                     prediction = self.classifier.predict(features)
+                    
+                    if prediction.get('error', False):
+                        logger.warning(f"Помилка предикції для сегменту {i}: {prediction.get('message', 'unknown')}")
+                        continue
+                    
+                    top_predictions = prediction['predictions'][:3] if 'predictions' in prediction else []
                     
                     segment_result = {
                         'segment_id': i + 1,
@@ -135,7 +191,7 @@ class IntervalRecognitionView(APIView):
                         'end_time': segment.end_time,
                         'duration': segment.end_time - segment.start_time,
                         'confidence': segment.confidence,
-                        'predictions': prediction['predictions'],
+                        'top_predictions': top_predictions,
                         'best_prediction': prediction['best_prediction'],
                         'quality_metrics': {
                             'audio_quality': segment.confidence,
@@ -150,6 +206,16 @@ class IntervalRecognitionView(APIView):
                     logger.error(f"Помилка аналізу сегменту {i}: {e}")
                     continue
             
+            if not recognition_results:
+                return {
+                    'error': 'Не вдалося проаналізувати жоден сегмент',
+                    'status': 'error',
+                    'processing_info': {
+                        'segments_found': len(processing_result.segments),
+                        'segments_analyzed': 0
+                    }
+                }
+            
             total_processing_time = time.time() - start_time
             final_result = self._finalize_recognition_result(
                 recognition_results, 
@@ -161,141 +227,29 @@ class IntervalRecognitionView(APIView):
             return final_result
             
         except Exception as e:
-            logger.error(f"Критична помилка обробки: {e}")
+            logger.error(f"Критична помилка: {e}")
             return {
-                'error': f'Критична помилка: {str(e)}',
+                'error': 'Критична помилка системи',
                 'status': 'error',
-                'processing_info': {
-                    'processing_time': time.time() - start_time
-                }
+                'technical_details': str(e),
+                'processing_time': time.time() - start_time
             }
-    
-    def _load_and_preprocess_audio(self, audio_data, validated_data):
-        """Завантаження та початкова обробка аудіо"""
-        try:
-            audio_buffer = io.BytesIO(audio_data)
-            
-            audio, sr = librosa.load(
-                audio_buffer,
-                sr=44100,
-                mono=True,
-                offset=0.0,
-                duration=None
-            )
-            
-            logger.info(f"Завантажено аудіо: {len(audio)/sr:.2f}с, SR: {sr}")
-            
-            audio = self._clean_audio(audio, sr)
-            
-            audio = self._trim_silence(audio, sr)
-            
-            min_duration = 1.0
-            if len(audio) / sr < min_duration:
-                logger.warning(f"Аудіо занадто коротке: {len(audio)/sr:.2f}с")
-                return None
-            
-            return audio
-            
-        except Exception as e:
-            logger.error(f"Помилка завантаження аудіо: {e}")
-            return None
-    
-    def _clean_audio(self, audio, sr):
-        """Очищення аудіо від артефактів"""
-        audio = audio - np.mean(audio)
-        
-        try:
-            nyquist = sr / 2
-            lowcut = 80  # Гц
-            high_normal = lowcut / nyquist
-            
-            if high_normal < 1.0:
-                b, a = butter(4, high_normal, btype='high')
-                audio = filtfilt(b, a, audio)
-        except Exception as e:
-            logger.warning(f"Помилка high-pass фільтра: {e}")
-        
-        try:
-            highcut = 8000  # Гц
-            low_normal = highcut / nyquist
-            
-            if low_normal < 1.0:
-                b, a = butter(4, low_normal, btype='low')
-                audio = filtfilt(b, a, audio)
-        except Exception as e:
-            logger.warning(f"Помилка low-pass фільтра: {e}")
-        
-        peak = np.max(np.abs(audio))
-        if peak > 0:
-            audio = audio / peak * 0.8
-        
-        return audio
-    
-    def _trim_silence(self, audio, sr, top_db=25):
-        """Видалення тиші на початку та в кінці"""
-        try:
-            intervals = librosa.effects.split(audio, top_db=top_db)
-            
-            if len(intervals) > 0:
-                start_sample = intervals[0][0]
-                end_sample = intervals[-1][1]
-                
-                buffer_samples = int(0.1 * sr)
-                start_sample = max(0, start_sample - buffer_samples)
-                end_sample = min(len(audio), end_sample + buffer_samples)
-                
-                audio = audio[start_sample:end_sample]
-                logger.info(f"Обрізано тишу: {start_sample/sr:.2f}с - {end_sample/sr:.2f}с")
-            
-            return audio
-            
-        except Exception as e:
-            logger.warning(f"Помилка видалення тиші: {e}")
-            return audio
-    
-    def _configure_preprocessing(self, level):
-        """Налаштування рівня попередньої обробки"""
-        if level == 'aggressive':
-            self.processor.noise_gate_threshold = -50
-            self.processor.min_note_duration = 0.05
-        elif level == 'minimal':
-            self.processor.noise_gate_threshold = -70
-            self.processor.min_note_duration = 0.2
-        else:
-            self.processor.noise_gate_threshold = -60
-            self.processor.min_note_duration = 0.1
     
     def _finalize_recognition_result(self, recognition_results, processing_result, validated_data, total_time):
-        """Формування підсумкового результату"""
-        
-        if not recognition_results:
-            return {
-                'status': 'error',
-                'message': 'Не вдалося розпізнати інтервали',
-                'processing_info': {
-                    'duration': processing_result.original_duration,
-                    'processing_time': total_time,
-                    'quality_score': processing_result.quality_score,
-                    'warnings': processing_result.warnings
-                }
-            }
+        """Формування підсумкового результату з детальними даними по сегментах"""
         
         best_result = max(recognition_results, 
                          key=lambda x: x['quality_metrics']['overall_confidence'])
         
         all_predictions = []
         for result in recognition_results:
-            all_predictions.extend(result['predictions'])
+            all_predictions.extend(result['top_predictions'])
         
         interval_stats = {}
         for pred in all_predictions:
             interval = pred['interval']
             if interval not in interval_stats:
-                interval_stats[interval] = {
-                    'count': 0,
-                    'total_confidence': 0,
-                    'avg_confidence': 0
-                }
+                interval_stats[interval] = {'count': 0, 'total_confidence': 0}
             interval_stats[interval]['count'] += 1
             interval_stats[interval]['total_confidence'] += pred['confidence']
         
@@ -319,107 +273,75 @@ class IntervalRecognitionView(APIView):
                     'audio_quality': best_result['quality_metrics']['audio_quality']
                 }
             },
-            'alternative_predictions': [
+            'segments_analysis': [
+                {
+                    'segment_id': result['segment_id'],
+                    'time_range': f"{result['start_time']:.1f}с - {result['end_time']:.1f}с",
+                    'duration': f"{result['duration']:.1f}с",
+                    'audio_quality': result['quality_metrics']['audio_quality'],
+                    'top_predictions': result['top_predictions'],
+                    'best_interval': result['best_prediction']['interval'],
+                    'best_confidence': result['best_prediction']['confidence']
+                }
+                for result in recognition_results
+            ],
+            'overall_top_intervals': [
                 {
                     'interval': interval,
                     'confidence': stats['avg_confidence'],
-                    'occurrence_count': stats['count']
+                    'occurrence_count': stats['count'],
+                    'segments_found_in': stats['count']
                 }
-                for interval, stats in top_intervals[1:]
+                for interval, stats in top_intervals
             ],
             'segments_analyzed': len(recognition_results),
-            'detailed_results': recognition_results,
             'processing_info': {
                 'original_duration': processing_result.original_duration,
                 'processing_time': total_time,
                 'quality_score': processing_result.quality_score,
                 'warnings': processing_result.warnings,
-                'preprocessing_level': validated_data.get('preprocessing_level', 'standard')
-            },
-            'recommendations': self._generate_recommendations(recognition_results, processing_result)
+                'preprocessing_level': validated_data.get('preprocessing_level', 'standard'),
+                'segments_found': len(processing_result.segments),
+                'segments_used': len(recognition_results),
+                'signal_improvement': processing_result.signal_stats.get('improvement', 0)
+            }
         }
-    
-    def _generate_recommendations(self, recognition_results, processing_result):
-        """Генерація рекомендацій для користувача"""
-        recommendations = []
-        
-        if not recognition_results:
-            return recommendations
-        
-        avg_audio_quality = np.mean([r['quality_metrics']['audio_quality'] 
-                                   for r in recognition_results])
-        avg_prediction_confidence = np.mean([r['quality_metrics']['prediction_confidence'] 
-                                           for r in recognition_results])
-        
-        if avg_audio_quality < 0.5:
-            recommendations.append({
-                'type': 'audio_quality',
-                'message': 'Низька якість аудіо. Спробуйте записати в тишому місці з кращим мікрофоном.',
-                'severity': 'warning'
-            })
-        
-        if avg_prediction_confidence < 0.6:
-            recommendations.append({
-                'type': 'recognition',
-                'message': 'Низька впевненість розпізнавання. Переконайтеся, що граєте чіткі музичні інтервали.',
-                'severity': 'info'
-            })
-        
-        if processing_result.quality_score < 0.4:
-            recommendations.append({
-                'type': 'recording',
-                'message': 'Спробуйте записати інтервали повільніше та чіткіше. Уникайте фонових шумів.',
-                'severity': 'warning'
-            })
-        
-        if len(recognition_results) == 1 and recognition_results[0]['duration'] < 1.5:
-            recommendations.append({
-                'type': 'duration',
-                'message': 'Зробіть довший запис (2-3 секунди) для кращого аналізу.',
-                'severity': 'info'
-            })
-        
-        if processing_result.original_duration < 2.0:
-            recommendations.append({
-                'type': 'short_recording',
-                'message': 'Короткий запис може знизити точність. Рекомендована тривалість: 2-3 секунди.',
-                'severity': 'info'
-            })
-        
-        low_quality_segments = [r for r in recognition_results 
-                               if r['quality_metrics']['overall_confidence'] < 0.5]
-        
-        if len(low_quality_segments) > len(recognition_results) * 0.7:
-            recommendations.append({
-                'type': 'segment_quality',
-                'message': 'Багато сегментів низької якості. Спробуйте грати інтервали більш виразно.',
-                'severity': 'warning'
-            })
-        
-        return recommendations
 
 
 class QuickRecognitionView(APIView):
-    """Швидке розпізнавання з мінімальною обробкою"""
+    """Швидке розпізнавання зі спрощеною обробкою"""
     
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
     
     def __init__(self):
         super().__init__()
+        self.feature_extractor = None
+        self.classifier = None
+        self.is_ready = False
+        
         try:
             self.feature_extractor = FFTFeatureExtractor()
             self.classifier = IntervalClassifier()
-            self.is_ready = True
+            
+            if self.classifier.is_loaded:
+                self.is_ready = True
+                logger.info("Швидке розпізнавання ініціалізовано")
+            else:
+                logger.error("Модель не завантажена для швидкого розпізнавання")
+                
         except Exception as e:
-            logger.error(f"Помилка ініціалізації для швидкого розпізнавання: {e}")
+            logger.error(f"Помилка ініціалізації швидкого розпізнавання: {e}")
             self.is_ready = False
     
     def post(self, request):
-        """Швидкий аналіз (спрощена обробка)"""
+        """Швидкий аналіз з мінімальною обробкою"""
         if not self.is_ready:
             return Response(
-                {'error': 'Модель розпізнавання недоступна'}, 
+                {
+                    'error': 'Модель розпізнавання недоступна для швидкого аналізу',
+                    'status': 'service_unavailable'
+                }, 
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
             
@@ -431,10 +353,15 @@ class QuickRecognitionView(APIView):
             start_time = time.time()
             
             audio_b64 = serializer.validated_data['audio_data']
-            audio_data = base64.b64decode(audio_b64)
-            
-            audio_buffer = io.BytesIO(audio_data)
-            audio, sr = librosa.load(audio_buffer, sr=22050, mono=True)
+            try:
+                audio_data = base64.b64decode(audio_b64)
+                audio_buffer = io.BytesIO(audio_data)
+                audio, sr = librosa.load(audio_buffer, sr=22050, mono=True)
+            except Exception as e:
+                return Response(
+                    {'error': 'Не вдалося завантажити аудіо файл'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             
             if len(audio) == 0:
                 return Response(
@@ -442,11 +369,28 @@ class QuickRecognitionView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            audio = self._minimal_processing(audio, sr)
+            try:
+                audio = self._quick_processing_dataset_style(audio, sr)
+            except Exception as e:
+                logger.error(f"Помилка швидкої обробки: {e}")
+                return Response(
+                    {'error': 'Помилка обробки аудіо'}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
             
-            features = self.feature_extractor.extract_features(audio)
-            
-            prediction = self.classifier.predict(features)
+            try:
+                features = self.feature_extractor.extract_features(audio)
+                prediction = self.classifier.predict(features)
+                
+                if prediction.get('error', False):
+                    raise Exception(prediction.get('message', 'Помилка розпізнавання'))
+                
+            except Exception as e:
+                logger.error(f"Помилка швидкого розпізнавання: {e}")
+                return Response(
+                    {'error': 'Помилка розпізнавання інтервалу'}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
             
             processing_time = time.time() - start_time
             
@@ -454,31 +398,56 @@ class QuickRecognitionView(APIView):
                 'status': 'success',
                 'mode': 'quick',
                 'prediction': prediction['best_prediction'],
-                'alternatives': prediction['predictions'][:3],
+                'top_predictions': prediction['predictions'][:3],
                 'processing_time': processing_time,
-                'note': 'Швидкий режим - спрощена обробка'
+                'note': 'Швидкий режим з базовою обробкою'
             })
             
         except Exception as e:
-            logger.error(f"Помилка швидкого розпізнавання: {e}")
+            logger.error(f"Критична помилка швидкого розпізнавання: {e}")
             return Response(
-                {'error': f'Помилка обробки: {str(e)}'}, 
+                {'error': 'Системна помилка швидкого розпізнавання'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
-    def _minimal_processing(self, audio, sr):
-        """Мінімальна обробка для швидкого режиму"""
+    def _quick_processing_dataset_style(self, audio, sr):
+        """Швидка обробка з елементами логіки датасету"""
         audio = audio - np.mean(audio)
+        
+        peak = np.max(np.abs(audio))
+        if peak > 0:
+            audio = audio / peak * 0.95
         
         rms = np.sqrt(np.mean(audio**2))
         if rms > 0:
-            target_rms = 0.1
-            audio = audio * (target_rms / rms)
+            current_rms_db = 20 * np.log10(rms)
+            target_rms_db = -18
+            gain_db = min(target_rms_db - current_rms_db, 20)
+            
+            if gain_db > 0:
+                gain_linear = 10**(gain_db / 20)
+                audio = audio * gain_linear
+                
+                peak = np.max(np.abs(audio))
+                if peak > 0.95:
+                    audio = audio * (0.90 / peak)
+        
+        audio = np.tanh(audio)
         
         target_samples = int(2.0 * sr)
         if len(audio) >= target_samples:
-            start = (len(audio) - target_samples) // 2
-            audio = audio[start:start + target_samples]
+            best_start = 0
+            best_energy = 0
+            step = max(target_samples // 10, 1)
+            
+            for start in range(0, len(audio) - target_samples + 1, step):
+                segment = audio[start:start + target_samples]
+                energy = np.mean(segment**2)
+                if energy > best_energy:
+                    best_energy = energy
+                    best_start = start
+                    
+            audio = audio[best_start:best_start + target_samples]
         else:
             audio = np.pad(audio, (0, target_samples - len(audio)), mode='constant')
         
@@ -486,44 +455,89 @@ class QuickRecognitionView(APIView):
 
 
 class ModelStatusView(APIView):
-    """Перевірка статусу моделі розпізнавання"""
+    """Перевірка статусу моделі"""
     
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
     
     def get(self, request):
-        """Отримання статусу моделі"""
+        """Отримання статусу системи"""
         try:
             classifier = IntervalClassifier()
             model_info = classifier.get_model_info()
             
+            try:
+                processor = RecognitionAudioProcessor()
+                processor_status = True
+            except Exception as e:
+                processor_status = False
+                logger.error(f"Помилка ініціалізації процесора: {e}")
+            
+            try:
+                extractor = FFTFeatureExtractor()
+                extractor_status = True
+            except Exception as e:
+                extractor_status = False
+                logger.error(f"Помилка ініціалізації екстрактора: {e}")
+            
+            overall_status = (
+                model_info.get('loaded', False) and 
+                processor_status and 
+                extractor_status
+            )
+            
             return Response({
-                'status': 'ready' if model_info.get('loaded', False) else 'error',
-                'model_info': model_info,
+                'status': 'ready' if overall_status else 'error',
+                'components': {
+                    'model': {
+                        'status': 'ready' if model_info.get('loaded', False) else 'error',
+                        'info': model_info
+                    },
+                    'audio_processor': {
+                        'status': 'ready' if processor_status else 'error'
+                    },
+                    'feature_extractor': {
+                        'status': 'ready' if extractor_status else 'error'
+                    }
+                },
+                'system_info': {
+                    'tensorflow_version': model_info.get('tensorflow_version', 'unknown'),
+                    'processor_version': 'dataset_identical_v1',
+                    'supported_intervals': [
+                        'major_2nd', 'major_3rd', 'major_6th', 'major_7th', 
+                        'minor_2nd', 'minor_3rd', 'minor_6th', 'minor_7th', 
+                        'perfect_4th', 'perfect_5th', 'perfect_8th', 'tritone'
+                    ]
+                },
                 'available_endpoints': [
                     '/api/recognition/interval/',
                     '/api/recognition/quick/',
-                    '/api/recognition/status/'
+                    '/api/recognition/status/',
+                    '/api/recognition/diagnostics/'
                 ]
             })
             
         except Exception as e:
-            logger.error(f"Помилка перевірки статусу моделі: {e}")
+            logger.error(f"Помилка перевірки статусу: {e}")
             return Response({
                 'status': 'error',
                 'error': str(e),
-                'model_info': {'loaded': False}
+                'components': {
+                    'model': {'status': 'error'},
+                    'audio_processor': {'status': 'unknown'},
+                    'feature_extractor': {'status': 'unknown'}
+                }
             })
 
 
 class AudioDiagnosticsView(APIView):
-    """Діагностика аудіо без розпізнавання"""
+    """Базова діагностика аудіо"""
     
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
     
     def post(self, request):
-        """Аналіз якості аудіо без розпізнавання"""
+        """Аналіз якості аудіо"""
         try:
             audio_data = base64.b64decode(request.data.get('audio_data', ''))
             
@@ -533,10 +547,36 @@ class AudioDiagnosticsView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            audio_buffer = io.BytesIO(audio_data)
-            audio, sr = librosa.load(audio_buffer, sr=44100, mono=True)
+            try:
+                audio_buffer = io.BytesIO(audio_data)
+                audio, sr = librosa.load(audio_buffer, sr=44100, mono=True)
+            except Exception as e:
+                return Response(
+                    {'error': 'Не вдалося завантажити аудіо для діагностики'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             
-            diagnostics = self._analyze_audio_quality(audio, sr)
+            duration = len(audio) / sr
+            rms = np.sqrt(np.mean(audio**2))
+            peak = np.max(np.abs(audio))
+            
+            rms_db = 20 * np.log10(rms + 1e-10)
+            peak_db = 20 * np.log10(peak + 1e-10)
+            
+            if rms_db > -25:
+                quality = 'good'
+            elif rms_db > -40:
+                quality = 'fair'
+            else:
+                quality = 'poor'
+            
+            diagnostics = {
+                'duration': round(duration, 2),
+                'rms_db': round(rms_db, 1),
+                'peak_db': round(peak_db, 1),
+                'quality': quality,
+                'recommendations': self._generate_basic_recommendations(rms_db, duration, peak)
+            }
             
             return Response({
                 'status': 'success',
@@ -544,114 +584,42 @@ class AudioDiagnosticsView(APIView):
             })
             
         except Exception as e:
-            logger.error(f"Помилка діагностики аудіо: {e}")
+            logger.error(f"Помилка діагностики: {e}")
             return Response(
-                {'error': f'Помилка аналізу: {str(e)}'}, 
+                {'error': 'Помилка аналізу аудіо'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
-    def _analyze_audio_quality(self, audio, sr):
-        """Детальний аналіз якості аудіо"""
-        duration = len(audio) / sr
-        
-        rms = np.sqrt(np.mean(audio**2))
-        peak = np.max(np.abs(audio))
-        
-        clipping_ratio = np.sum(np.abs(audio) > 0.99) / len(audio)
-        
-        rms_db = 20 * np.log10(rms + 1e-10)
-        peak_db = 20 * np.log10(peak + 1e-10)
-        dynamic_range = peak_db - rms_db
-        
-        try:
-            spectral_centroid = librosa.feature.spectral_centroid(y=audio, sr=sr)[0]
-            mean_centroid = np.mean(spectral_centroid)
-            
-            spectral_bandwidth = librosa.feature.spectral_bandwidth(y=audio, sr=sr)[0]
-            mean_bandwidth = np.mean(spectral_bandwidth)
-        except:
-            mean_centroid = 0
-            mean_bandwidth = 0
-        
-        silence_threshold = peak * 0.01
-        silence_ratio = np.sum(np.abs(audio) < silence_threshold) / len(audio)
-        
-        quality_score = self._calculate_quality_score(
-            rms_db, clipping_ratio, dynamic_range, silence_ratio
-        )
-        
-        return {
-            'duration': round(duration, 2),
-            'rms_db': round(rms_db, 2),
-            'peak_db': round(peak_db, 2),
-            'dynamic_range': round(dynamic_range, 2),
-            'clipping_ratio': round(clipping_ratio * 100, 2),
-            'silence_ratio': round(silence_ratio * 100, 2),
-            'spectral_centroid': round(mean_centroid, 2),
-            'spectral_bandwidth': round(mean_bandwidth, 2),
-            'quality_score': round(quality_score, 2),
-            'quality_rating': self._get_quality_rating(quality_score),
-            'recommendations': self._get_audio_recommendations(
-                rms_db, clipping_ratio, dynamic_range, silence_ratio, duration
-            )
-        }
-    
-    def _calculate_quality_score(self, rms_db, clipping_ratio, dynamic_range, silence_ratio):
-        """Розрахунок загального скору якості"""
-        score = 100
-        
-        # Штраф за низький рівень
-        if rms_db < -40:
-            score -= (40 + rms_db)
-        elif rms_db < -20:
-            score -= (20 + rms_db) * 0.5
-        
-        # Штраф за кліпування
-        score -= clipping_ratio * 1000
-        
-        # Штраф за низький динамічний діапазон
-        if dynamic_range < 10:
-            score -= (10 - dynamic_range) * 2
-        
-        # Штраф за надмірну тишу
-        if silence_ratio > 0.5:
-            score -= (silence_ratio - 0.5) * 100
-        
-        return max(0, min(100, score))
-    
-    def _get_quality_rating(self, score):
-        """Текстова оцінка якості"""
-        if score >= 80:
-            return 'Відмінна'
-        elif score >= 60:
-            return 'Хороша'
-        elif score >= 40:
-            return 'Задовільна'
-        elif score >= 20:
-            return 'Погана'
-        else:
-            return 'Дуже погана'
-    
-    def _get_audio_recommendations(self, rms_db, clipping_ratio, dynamic_range, silence_ratio, duration):
-        """Рекомендації по покращенню якості"""
+    def _generate_basic_recommendations(self, rms_db, duration, peak):
+        """Базові рекомендації"""
         recommendations = []
         
         if rms_db < -40:
-            recommendations.append("Збільшіть гучність запису або приблизьтеся до мікрофона")
+            recommendations.append({
+                'category': 'volume',
+                'message': f'Тихий запис ({rms_db:.1f}dB). Записуйте ближче до мікрофона.',
+                'priority': 'high'
+            })
         
-        if clipping_ratio > 0.01:
-            recommendations.append("Зменшіть гучність для уникнення кліпування")
+        if duration < 1.5:
+            recommendations.append({
+                'category': 'duration',
+                'message': 'Короткий запис. Рекомендована тривалість: 2-3 секунди.',
+                'priority': 'medium'
+            })
         
-        if dynamic_range < 10:
-            recommendations.append("Грайте з більшою динамікою для кращого розпізнавання")
-        
-        if silence_ratio > 0.7:
-            recommendations.append("Зменшіть паузи між нотами або грайте голосніше")
-        
-        if duration < 2:
-            recommendations.append("Зробіть довший запис (2-3 секунди) для кращого аналізу")
+        if peak > 0.99:
+            recommendations.append({
+                'category': 'clipping',
+                'message': 'Виявлено кліпування. Зменшіть гучність запису.',
+                'priority': 'high'
+            })
         
         if not recommendations:
-            recommendations.append("Якість запису хороша для розпізнавання")
+            recommendations.append({
+                'category': 'quality',
+                'message': 'Хороша якість запису для розпізнавання.',
+                'priority': 'info'
+            })
         
         return recommendations
