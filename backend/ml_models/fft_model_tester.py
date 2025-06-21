@@ -51,9 +51,9 @@ class FFTModelTester:
                 print(f"Помилка завантаження класів з датасету: {e}")
         
         return [
-            'minor_2nd', 'major_2nd', 'minor_3rd', 'major_3rd', 
-            'perfect_4th', 'tritone', 'perfect_5th', 'minor_6th', 
-            'major_6th', 'minor_7th', 'major_7th', 'perfect_8th'
+            'major_2nd', 'major_3rd', 'major_6th', 'major_7th',
+            'minor_2nd', 'minor_3rd', 'minor_6th', 'minor_7th',
+            'perfect_4th', 'perfect_5th', 'perfect_8th', 'tritone'
         ]
     
     def _calculate_freq_range(self):
