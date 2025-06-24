@@ -351,6 +351,24 @@
   }
 }
 
+.top-predictions {
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    font-size: $font-size-lg;
+    font-weight: 600;
+    color: $text-primary;
+    margin-bottom: $space-4;
+
+    svg {
+      width: 1.25rem;
+      height: 1.25rem;
+      color: $primary-color;
+    }
+  }
+}
+
 .predictions-title {
   font-size: $font-size-sm;
   font-weight: 600;
@@ -647,4 +665,31 @@
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+@media (max-width: $breakpoint-sm) {
+  .prediction-item {
+    padding: $space-2 $space-3;
+    
+    &__name {
+      font-size: $font-size-sm;
+    }
+    
+    &__subtitle {
+      font-size: $font-size-xs;
+    }
+    
+    &__confidence {
+      min-width: 60px;
+    }
+  }
+
+  .confidence-mini-bar {
+    width: 50px;
+    height: 3px;
+  }
+
+  .confidence-percentage {
+    font-size: $font-size-xs;
+  }
 }
