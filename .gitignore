@@ -23,6 +23,8 @@ dataset-preparation/normalized-recordings/
 dataset-preparation/processed-segments/
 dataset-preparation/spectrograms/
 dataset-preparation/fft-dataset/
+backend/core/*.json
+backend/core/*.txt
 
 # Модель
 *.keras

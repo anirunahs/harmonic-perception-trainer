@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { Mic, MicOff, Play, Square, RotateCcw, Volume2 } from "lucide-react";
+import { Mic, MicOff, Play, Square, RotateCcw, Volume2, Loader, 
+         AlertCircle, CheckCircle, TrendingUp, Zap } from "lucide-react";
 import Header from "../components/Header";
+import RecognitionResults from "../components/recognition/RecognitionResults";
+import api from "../api";
 
 const AudioRecognizer = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -9,11 +12,47 @@ const AudioRecognizer = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioBlob, setAudioBlob] = useState(null);
   const [recordingStatus, setRecordingStatus] = useState('idle');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState(null);
+  const [error, setError] = useState(null);
+  const [audioQuality, setAudioQuality] = useState(null);
+  const [modelStatus, setModelStatus] = useState('loading');
 
   const timerRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const audioRef = useRef(null);
+  const streamRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const analyserRef = useRef(null);
+
+  useEffect(() => {
+    const checkModelStatus = async () => {
+      try {
+        const response = await api.get('/api/recognition/status/');
+        if (response.data.status === 'ready') {
+          setModelStatus('ready');
+        } else {
+          setModelStatus('error');
+        }
+      } catch (error) {
+        console.error('Error checking model status:', error);
+        setModelStatus('error');
+      }
+    };
+
+    checkModelStatus();
+    
+    const retryInterval = setInterval(() => {
+      if (modelStatus !== 'ready') {
+        checkModelStatus();
+      } else {
+        clearInterval(retryInterval);
+      }
+    }, 30000);
+
+    return () => clearInterval(retryInterval);
+  }, [modelStatus]);
 
   const formatTime = useCallback((s) => {
     const min = String(Math.floor(s / 60)).padStart(2, "0");
@@ -41,13 +80,144 @@ const AudioRecognizer = () => {
     setAudioBlob(null);
     setRecordingStatus('idle');
     setIsPlaying(false);
+    setAnalysisResult(null);
+    setError(null);
+    setAudioQuality(null);
     audioChunksRef.current = [];
   }, []);
 
-  const startRecording = useCallback(async () => {
+  const setupAudioContext = async (stream) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)({
+        sampleRate: 44100
+      });
+      
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = 0.8;
+      
+      const source = audioContext.createMediaStreamSource(stream);
+      source.connect(analyser);
+      
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+      
+      return { audioContext, analyser };
+    } catch (error) {
+      console.error('Error setting up audio context:', error);
+      return null;
+    }
+  };
+
+  const analyzeAudioQuality = () => {
+    if (!analyserRef.current) return null;
+
+    const bufferLength = analyserRef.current.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    analyserRef.current.getByteFrequencyData(dataArray);
+
+    const averageLevel = dataArray.reduce((sum, value) => sum + value, 0) / bufferLength;
+    const maxLevel = Math.max(...dataArray);
+    const signalPresent = averageLevel > 5;
+    const noiseLevel = dataArray.slice(0, 50).reduce((sum, value) => sum + value, 0) / 50;
+    const signalToNoise = signalPresent ? averageLevel / (noiseLevel + 1) : 0;
+
+    return {
+      averageLevel: Math.round(averageLevel),
+      maxLevel: Math.round(maxLevel),
+      signalPresent,
+      signalToNoise: Math.round(signalToNoise * 10) / 10,
+      quality: signalToNoise > 3 ? 'good' : signalToNoise > 1.5 ? 'fair' : 'poor'
+    };
+  };
+
+  const convertToWav = (audioBlob) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const arrayBuffer = reader.result;
+        
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        audioContext.decodeAudioData(arrayBuffer)
+          .then(audioBuffer => {
+            const wavBuffer = audioBufferToWav(audioBuffer);
+            const wavBlob = new Blob([wavBuffer], { type: 'audio/wav' });
+            resolve(wavBlob);
+          })
+          .catch(reject);
+      };
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(audioBlob);
+    });
+  };
+
+  const audioBufferToWav = (buffer) => {
+    const length = buffer.length;
+    const sampleRate = buffer.sampleRate;
+    const channels = buffer.numberOfChannels;
+    
+    const arrayBuffer = new ArrayBuffer(44 + length * channels * 2);
+    const view = new DataView(arrayBuffer);
+    
+    const writeString = (offset, string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    };
+    
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + length * channels * 2, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, channels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * channels * 2, true);
+    view.setUint16(32, channels * 2, true);
+    view.setUint16(34, 16, true);
+    writeString(36, 'data');
+    view.setUint32(40, length * channels * 2, true);
+    
+    let offset = 44;
+    for (let i = 0; i < length; i++) {
+      for (let channel = 0; channel < channels; channel++) {
+        const sample = Math.max(-1, Math.min(1, buffer.getChannelData(channel)[i]));
+        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+        offset += 2;
+      }
+    }
+    
+    return arrayBuffer;
+  };
+
+  const startRecording = async () => {
+    try {
+      setError(null);
+      setRecordingStatus('initializing');
+
+      const constraints = {
+        audio: {
+          sampleRate: 44100,
+          channelCount: 1,
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          latency: 0.01
+        }
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = stream;
+
+      await setupAudioContext(stream);
+
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus',
+        audioBitsPerSecond: 128000
+      });
+
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -57,29 +227,95 @@ const AudioRecognizer = () => {
         }
       };
 
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
-        setAudioBlob(audioBlob);
-        setHasRecording(true);
-        setRecordingStatus('completed');
-        stream.getTracks().forEach(track => track.stop());
+      mediaRecorder.onstop = async () => {
+        const webmBlob = new Blob(audioChunksRef.current, { 
+          type: 'audio/webm;codecs=opus' 
+        });
+        
+        try {
+          const wavBlob = await convertToWav(webmBlob);
+          setAudioBlob(wavBlob);
+          setHasRecording(true);
+          setRecordingStatus('completed');
+        } catch (error) {
+          console.error('Error converting to WAV:', error);
+          setAudioBlob(webmBlob);
+          setHasRecording(true);
+          setRecordingStatus('completed');
+        }
+        
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
+        }
+        
+        if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+          audioContextRef.current.close();
+          audioContextRef.current = null;
+        }
+        
+        if (mediaRecorderRef.current?.qualityInterval) {
+          clearInterval(mediaRecorderRef.current.qualityInterval);
+        }
       };
 
-      mediaRecorder.start();
+      mediaRecorder.onerror = (event) => {
+        console.error('MediaRecorder error:', event.error);
+        setError(`Помилка запису: ${event.error?.message || 'Невідома помилка'}`);
+        setRecordingStatus('error');
+      };
+
+      mediaRecorder.start(100);
       setIsRecording(true);
       setRecordingStatus('recording');
       startTimer();
+
+      const qualityInterval = setInterval(() => {
+        const quality = analyzeAudioQuality();
+        setAudioQuality(quality);
+      }, 500);
+
+      mediaRecorderRef.current.qualityInterval = qualityInterval;
+
     } catch (error) {
       console.error('Error accessing microphone:', error);
-      alert('Помилка доступу до мікрофона. Перевірте дозволи.');
+      let errorMessage = 'Помилка доступу до мікрофона';
+      
+      if (error.name === 'NotAllowedError') {
+        errorMessage = 'Доступ до мікрофона заборонено. Дозвольте використання мікрофона в налаштуваннях браузера.';
+      } else if (error.name === 'NotFoundError') {
+        errorMessage = 'Мікрофон не знайдено. Переконайтеся, що мікрофон підключено.';
+      } else if (error.name === 'NotReadableError') {
+        errorMessage = 'Мікрофон зайнятий іншою програмою або пошкоджений.';
+      } else if (error.message) {
+        errorMessage += `: ${error.message}`;
+      }
+      
+      setError(errorMessage);
+      setRecordingStatus('error');
     }
-  }, [startTimer]);
+  };
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      stopTimer();
+      try {
+        if (mediaRecorderRef.current.qualityInterval) {
+          clearInterval(mediaRecorderRef.current.qualityInterval);
+          mediaRecorderRef.current.qualityInterval = null;
+        }
+
+        if (mediaRecorderRef.current.state === 'recording') {
+          mediaRecorderRef.current.stop();
+        }
+        
+        setIsRecording(false);
+        stopTimer();
+        setAudioQuality(null);
+        
+      } catch (error) {
+        console.error('Error stopping recording:', error);
+        setError('Помилка зупинки запису');
+      }
     }
   }, [isRecording, stopTimer]);
 
@@ -96,33 +332,147 @@ const AudioRecognizer = () => {
 
   const playRecording = useCallback(() => {
     if (audioBlob && audioRef.current) {
-      const audioUrl = URL.createObjectURL(audioBlob);
-      audioRef.current.src = audioUrl;
-      audioRef.current.play();
-      setIsPlaying(true);
+      try {
+        const audioUrl = URL.createObjectURL(audioBlob);
+        audioRef.current.src = audioUrl;
+        
+        audioRef.current.onplay = () => {
+          setIsPlaying(true);
+        };
 
-      audioRef.current.onended = () => {
-        setIsPlaying(false);
-        URL.revokeObjectURL(audioUrl);
-      };
+        audioRef.current.onended = () => {
+          setIsPlaying(false);
+          URL.revokeObjectURL(audioUrl);
+        };
+        
+        audioRef.current.onerror = (e) => {
+          console.error('Audio playback error:', e);
+          setIsPlaying(false);
+          URL.revokeObjectURL(audioUrl);
+          setError('Помилка відтворення аудіо');
+        };
+        
+        audioRef.current.onpause = () => {
+          setIsPlaying(false);
+        };
+
+        const playPromise = audioRef.current.play();
+        
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              console.log('Audio playback started successfully');
+            })
+            .catch(error => {
+              console.error('Error playing audio:', error);
+              setIsPlaying(false);
+              URL.revokeObjectURL(audioUrl);
+              setError('Не вдалося відтворити аудіо. Спробуйте ще раз.');
+            });
+        }
+        
+      } catch (error) {
+        console.error('Error creating audio URL:', error);
+        setError('Помилка підготовки аудіо для відтворення');
+      }
     }
   }, [audioBlob]);
 
-  const analyzeAudio = useCallback(() => {
-    if (!audioBlob) return;
+  const audioToBase64 = useCallback((blob) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = function handleLoad() {
+        try {
+          const arrayBuffer = reader.result;
+          const uint8Array = new Uint8Array(arrayBuffer);
+
+          let binary = '';
+          for (let i = 0; i < uint8Array.length; i++) {
+            binary += String.fromCharCode(uint8Array[i]);
+          }
+
+          const base64 = btoa(binary);
+          resolve(base64);
+        } catch (error) {
+          reject(error);
+        }
+      };
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(blob);
+    });
+  }, []);
+
+  const recognizeInterval = useCallback(async () => {
+    if (!audioBlob) {
+      setError('Немає запису для аналізу');
+      return;
+    }
+
+    if (modelStatus !== 'ready') {
+      setError('Модель розпізнавання ще не готова. Спробуйте через кілька секунд.');
+      return;
+    }
     
-    // TODO: Аудіоаналіз
-    alert('Функція аналізу аудіо!');
-  }, [audioBlob]);
+    setError(null);
+    setIsAnalyzing(true);
+    setAnalysisResult(null);
+
+    try {
+      const audioBase64 = await audioToBase64(audioBlob);
+      
+      const requestData = {
+        audio_data: audioBase64,
+        format: 'wav'
+      };
+
+      const response = await api.post('/api/recognition/interval/', requestData);
+      
+      if (response.data.status === 'success') {
+        setAnalysisResult(response.data);
+      } else {
+        throw new Error(response.data.error || 'Помилка розпізнавання');
+      }
+
+    } catch (error) {
+      console.error('Error recognizing interval:', error);
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.message || 
+                          'Помилка розпізнавання інтервалу';
+      setError(errorMessage);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [audioBlob, audioToBase64, modelStatus]);
 
   useEffect(() => {
     return () => {
-      stopTimer();
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      
       if (mediaRecorderRef.current) {
-        mediaRecorderRef.current.stop();
+        if (mediaRecorderRef.current.qualityInterval) {
+          clearInterval(mediaRecorderRef.current.qualityInterval);
+        }
+        if (mediaRecorderRef.current.state === 'recording') {
+          mediaRecorderRef.current.stop();
+        }
+      }
+      
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+      
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close();
+      }
+      
+      if (audioRef.current && audioRef.current.src) {
+        URL.revokeObjectURL(audioRef.current.src);
       }
     };
-  }, [stopTimer]);
+  }, []);
 
   const getRecordingButtonClass = () => {
     const baseClass = "record-btn";
@@ -130,6 +480,30 @@ const AudioRecognizer = () => {
     if (hasRecording) return `${baseClass} ${baseClass}--completed`;
     return baseClass;
   };
+
+  const getQualityColor = (quality) => {
+    switch (quality?.quality) {
+      case 'good': return '#10b981';
+      case 'fair': return '#f59e0b';
+      case 'poor': return '#ef4444';
+      default: return '#6b7280';
+    }
+  };
+
+  const getModelStatusMessage = () => {
+    switch (modelStatus) {
+      case 'loading':
+        return 'Завантаження моделі розпізнавання...';
+      case 'ready':
+        return 'Модель готова до роботи';
+      case 'error':
+        return 'Помилка завантаження моделі';
+      default:
+        return 'Невідомий статус';
+    }
+  };
+
+  const canRecognize = modelStatus === 'ready' && hasRecording && !isAnalyzing;
 
   return (
     <>
@@ -139,8 +513,17 @@ const AudioRecognizer = () => {
           <div className="audio-recognizer__header">
             <h1 className="audio-recognizer__title">Розпізнавання музичних інтервалів</h1>
             <p className="audio-recognizer__subtitle">
-              Запишіть звук та отримайте аналіз музичного інтервалу
+              Запишіть звук та отримайте передбачення музичного інтервалу
             </p>
+            
+            <div className={`model-status model-status--${modelStatus}`}>
+              <div className="model-status__icon">
+                {modelStatus === 'loading' && <Loader className="spin" />}
+                {modelStatus === 'ready' && <CheckCircle />}
+                {modelStatus === 'error' && <AlertCircle />}
+              </div>
+              <span className="model-status__text">{getModelStatusMessage()}</span>
+            </div>
           </div>
 
           <div className="audio-recognizer__content">
@@ -153,6 +536,18 @@ const AudioRecognizer = () => {
                       <div className="recording-pulse"></div>
                     </div>
                   )}
+                  {audioQuality && isRecording && (
+                    <div className="quality-indicator">
+                      <div 
+                        className="quality-bar"
+                        style={{ 
+                          width: `${Math.min(audioQuality.averageLevel / 2, 100)}%`,
+                          backgroundColor: getQualityColor(audioQuality)
+                        }}
+                      />
+                      <span className="quality-text">{audioQuality.quality}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -160,6 +555,7 @@ const AudioRecognizer = () => {
                 <button
                   className={getRecordingButtonClass()}
                   onClick={toggleRecording}
+                  disabled={isAnalyzing}
                   aria-label={isRecording ? "Зупинити запис" : "Почати запис"}
                 >
                   <div className="record-btn__icon">
@@ -175,7 +571,7 @@ const AudioRecognizer = () => {
                     <button
                       className="action-btn action-btn--secondary"
                       onClick={playRecording}
-                      disabled={isPlaying}
+                      disabled={isPlaying || isAnalyzing}
                       aria-label="Відтворити запис"
                     >
                       <Play />
@@ -183,17 +579,19 @@ const AudioRecognizer = () => {
                     </button>
 
                     <button
-                      className="action-btn action-btn--primary"
-                      onClick={analyzeAudio}
-                      aria-label="Аналізувати запис"
+                      className={`action-btn action-btn--primary ${!canRecognize ? 'action-btn--disabled' : ''}`}
+                      onClick={recognizeInterval}
+                      disabled={!canRecognize}
+                      aria-label="Розпізнати інтервал"
                     >
-                      <Volume2 />
-                      <span>Аналізувати</span>
+                      {isAnalyzing ? <Loader className="spin" /> : <Zap />}
+                      <span>{isAnalyzing ? "Розпізнаємо..." : "Розпізнати інтервал"}</span>
                     </button>
 
                     <button
                       className="action-btn action-btn--ghost"
                       onClick={resetRecording}
+                      disabled={isAnalyzing}
                       aria-label="Скинути запис"
                     >
                       <RotateCcw />
@@ -204,17 +602,59 @@ const AudioRecognizer = () => {
               </div>
             </div>
 
-            {recordingStatus === 'completed' && (
+            {(analysisResult || isAnalyzing || error) && (
+              <RecognitionResults 
+                result={analysisResult}
+                isAnalyzing={isAnalyzing}
+                error={error}
+              />
+            )}
+
+            {recordingStatus === 'completed' && !analysisResult && !error && (
               <div className="audio-recognizer__status">
                 <div className="status-card status-card--success">
                   <div className="status-card__icon">
-                    <Volume2 />
+                    <CheckCircle />
                   </div>
                   <div className="status-card__content">
                     <h3 className="status-card__title">Запис завершено</h3>
                     <p className="status-card__description">
-                      Тривалість: {formatTime(seconds)}. Натисніть "Аналізувати" для розпізнавання інтервалу.
+                      Тривалість: {formatTime(seconds)}. 
+                      {modelStatus === 'ready' 
+                        ? ' Натисніть "Розпізнати інтервал" для аналізу.'
+                        : ' Очікуємо готовності моделі для розпізнавання.'
+                      }
                     </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {recordingStatus === 'initializing' && (
+              <div className="audio-recognizer__status">
+                <div className="status-card status-card--info">
+                  <div className="status-card__icon">
+                    <Loader className="spin" />
+                  </div>
+                  <div className="status-card__content">
+                    <h3 className="status-card__title">Ініціалізація</h3>
+                    <p className="status-card__description">
+                      Налаштування мікрофона та аудіо системи...
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {error && (
+              <div className="audio-recognizer__status">
+                <div className="status-card status-card--error">
+                  <div className="status-card__icon">
+                    <AlertCircle />
+                  </div>
+                  <div className="status-card__content">
+                    <h3 className="status-card__title">Помилка</h3>
+                    <p className="status-card__description">{error}</p>
                   </div>
                 </div>
               </div>

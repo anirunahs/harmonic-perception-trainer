@@ -308,10 +308,10 @@ class FFTIntervalClassifier:
             metadata = {
                 'class_names': self.class_names,
                 'class_to_index': self.class_to_index,
-                'num_classes': self.num_classes,
-                'fft_size': self.fft_size,
-                'sample_rate': self.sample_rate,
-                'freq_range': self.freq_range
+                'num_classes': int(self.num_classes),
+                'fft_size': int(self.fft_size),
+                'sample_rate': int(self.sample_rate),
+                'freq_range': [int(self.freq_range[0]), int(self.freq_range[1])]
             }
             
             metadata_path = model_path.replace('.keras', '_metadata.json')
