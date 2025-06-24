@@ -9,7 +9,7 @@ sqlparse
 psycopg2-binary
 python-dotenv
 
-numpy
+numpy==1.24.3
 scipy
 tensorflow
 keras
@@ -27,3 +27,6 @@ scikit-learn
 
 tqdm
 pathlib2
+
+pydub
+resampy
