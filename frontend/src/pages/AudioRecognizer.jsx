@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Mic, MicOff, Play, Square, RotateCcw, Volume2, Loader, 
-         AlertCircle, CheckCircle, Info, Zap, Settings, TrendingUp } from "lucide-react";
+         AlertCircle, CheckCircle, TrendingUp, Zap } from "lucide-react";
 import Header from "../components/Header";
 import RecognitionResults from "../components/recognition/RecognitionResults";
 import api from "../api";
@@ -16,11 +16,7 @@ const AudioRecognizer = () => {
   const [analysisResult, setAnalysisResult] = useState(null);
   const [error, setError] = useState(null);
   const [audioQuality, setAudioQuality] = useState(null);
-  const [processingSettings, setProcessingSettings] = useState({
-    preprocessing_level: 'standard',
-    max_segments: 3,
-    noise_reduction: true
-  });
+  const [modelStatus, setModelStatus] = useState('loading');
 
   const timerRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -29,6 +25,34 @@ const AudioRecognizer = () => {
   const streamRef = useRef(null);
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
+
+  useEffect(() => {
+    const checkModelStatus = async () => {
+      try {
+        const response = await api.get('/api/recognition/status/');
+        if (response.data.status === 'ready') {
+          setModelStatus('ready');
+        } else {
+          setModelStatus('error');
+        }
+      } catch (error) {
+        console.error('Error checking model status:', error);
+        setModelStatus('error');
+      }
+    };
+
+    checkModelStatus();
+    
+    const retryInterval = setInterval(() => {
+      if (modelStatus !== 'ready') {
+        checkModelStatus();
+      } else {
+        clearInterval(retryInterval);
+      }
+    }, 30000);
+
+    return () => clearInterval(retryInterval);
+  }, [modelStatus]);
 
   const formatTime = useCallback((s) => {
     const min = String(Math.floor(s / 60)).padStart(2, "0");
@@ -378,9 +402,14 @@ const AudioRecognizer = () => {
     });
   }, []);
 
-  const analyzeAudio = useCallback(async () => {
+  const recognizeInterval = useCallback(async () => {
     if (!audioBlob) {
       setError('Немає запису для аналізу');
+      return;
+    }
+
+    if (modelStatus !== 'ready') {
+      setError('Модель розпізнавання ще не готова. Спробуйте через кілька секунд.');
       return;
     }
     
@@ -393,63 +422,27 @@ const AudioRecognizer = () => {
       
       const requestData = {
         audio_data: audioBase64,
-        format: 'wav',
-        preprocessing_level: processingSettings.preprocessing_level,
-        max_segments: processingSettings.max_segments
+        format: 'wav'
       };
 
       const response = await api.post('/api/recognition/interval/', requestData);
       
-      if (response.data.status === 'completed') {
-        setAnalysisResult(response.data.result);
+      if (response.data.status === 'success') {
+        setAnalysisResult(response.data);
       } else {
-        throw new Error(response.data.message || 'Помилка аналізу');
+        throw new Error(response.data.error || 'Помилка розпізнавання');
       }
 
     } catch (error) {
-      console.error('Error analyzing audio:', error);
+      console.error('Error recognizing interval:', error);
       const errorMessage = error.response?.data?.error || 
                           error.response?.data?.message || 
-                          'Помилка аналізу аудіо';
+                          'Помилка розпізнавання інтервалу';
       setError(errorMessage);
     } finally {
       setIsAnalyzing(false);
     }
-  }, [audioBlob, audioToBase64, processingSettings]);
-
-  const quickAnalyze = useCallback(async () => {
-    if (!audioBlob) return;
-    
-    setError(null);
-    setIsAnalyzing(true);
-
-    try {
-      const audioBase64 = await audioToBase64(audioBlob);
-      
-      const requestData = {
-        audio_data: audioBase64,
-        format: 'wav'
-      };
-
-      const response = await api.post('/api/recognition/quick/', requestData);
-      setAnalysisResult({
-        status: 'success',
-        mode: 'quick',
-        best_prediction: response.data.prediction,
-        top_predictions: response.data.top_predictions || [],
-        processing_info: {
-          processing_time: response.data.processing_time,
-          mode: 'Швидкий режим'
-        }
-      });
-
-    } catch (error) {
-      console.error('Error in quick analysis:', error);
-      setError(error.response?.data?.error || 'Помилка швидкого аналізу');
-    } finally {
-      setIsAnalyzing(false);
-    }
-  }, [audioBlob, audioToBase64]);
+  }, [audioBlob, audioToBase64, modelStatus]);
 
   useEffect(() => {
     return () => {
@@ -497,15 +490,20 @@ const AudioRecognizer = () => {
     }
   };
 
-  const renderResults = () => {
-    return (
-      <RecognitionResults 
-        result={analysisResult}
-        isAnalyzing={isAnalyzing}
-        error={error}
-      />
-    );
+  const getModelStatusMessage = () => {
+    switch (modelStatus) {
+      case 'loading':
+        return 'Завантаження моделі розпізнавання...';
+      case 'ready':
+        return 'Модель готова до роботи';
+      case 'error':
+        return 'Помилка завантаження моделі';
+      default:
+        return 'Невідомий статус';
+    }
   };
+
+  const canRecognize = modelStatus === 'ready' && hasRecording && !isAnalyzing;
 
   return (
     <>
@@ -517,6 +515,15 @@ const AudioRecognizer = () => {
             <p className="audio-recognizer__subtitle">
               Запишіть звук та отримайте передбачення музичного інтервалу
             </p>
+            
+            <div className={`model-status model-status--${modelStatus}`}>
+              <div className="model-status__icon">
+                {modelStatus === 'loading' && <Loader className="spin" />}
+                {modelStatus === 'ready' && <CheckCircle />}
+                {modelStatus === 'error' && <AlertCircle />}
+              </div>
+              <span className="model-status__text">{getModelStatusMessage()}</span>
+            </div>
           </div>
 
           <div className="audio-recognizer__content">
@@ -572,23 +579,13 @@ const AudioRecognizer = () => {
                     </button>
 
                     <button
-                      className="action-btn action-btn--primary"
-                      onClick={analyzeAudio}
-                      disabled={isAnalyzing}
-                      aria-label="Детальний аналіз"
+                      className={`action-btn action-btn--primary ${!canRecognize ? 'action-btn--disabled' : ''}`}
+                      onClick={recognizeInterval}
+                      disabled={!canRecognize}
+                      aria-label="Розпізнати інтервал"
                     >
-                      {isAnalyzing ? <Loader className="spin" /> : <TrendingUp />}
-                      <span>{isAnalyzing ? "Аналізуємо..." : "Детальний аналіз"}</span>
-                    </button>
-
-                    <button
-                      className="action-btn action-btn--tertiary"
-                      onClick={quickAnalyze}
-                      disabled={isAnalyzing}
-                      aria-label="Швидкий аналіз"
-                    >
-                      <Zap />
-                      <span>Швидко</span>
+                      {isAnalyzing ? <Loader className="spin" /> : <Zap />}
+                      <span>{isAnalyzing ? "Розпізнаємо..." : "Розпізнати інтервал"}</span>
                     </button>
 
                     <button
@@ -603,53 +600,17 @@ const AudioRecognizer = () => {
                   </div>
                 )}
               </div>
-
-              <div className="processing-settings">
-                <h3 className="processing-settings__title">
-                  <Settings />
-                  Налаштування обробки
-                </h3>
-                <div className="processing-settings__grid">
-                  <div className="setting-group">
-                    <label htmlFor="preprocessing">Рівень попередньої обробки:</label>
-                    <select
-                      id="preprocessing"
-                      value={processingSettings.preprocessing_level}
-                      onChange={(e) => setProcessingSettings(prev => ({
-                        ...prev,
-                        preprocessing_level: e.target.value
-                      }))}
-                      disabled={isRecording || isAnalyzing}
-                    >
-                      <option value="minimal">Мінімальний</option>
-                      <option value="standard">Стандартний</option>
-                      <option value="aggressive">Агресивний</option>
-                    </select>
-                  </div>
-                  <div className="setting-group">
-                    <label htmlFor="maxSegments">Макс. сегментів:</label>
-                    <select
-                      id="maxSegments"
-                      value={processingSettings.max_segments}
-                      onChange={(e) => setProcessingSettings(prev => ({
-                        ...prev,
-                        max_segments: parseInt(e.target.value)
-                      }))}
-                      disabled={isRecording || isAnalyzing}
-                    >
-                      <option value={1}>1</option>
-                      <option value={2}>2</option>
-                      <option value={3}>3</option>
-                      <option value={5}>5</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
             </div>
 
-            {renderResults()}
+            {(analysisResult || isAnalyzing || error) && (
+              <RecognitionResults 
+                result={analysisResult}
+                isAnalyzing={isAnalyzing}
+                error={error}
+              />
+            )}
 
-            {recordingStatus === 'completed' && !analysisResult && (
+            {recordingStatus === 'completed' && !analysisResult && !error && (
               <div className="audio-recognizer__status">
                 <div className="status-card status-card--success">
                   <div className="status-card__icon">
@@ -658,7 +619,11 @@ const AudioRecognizer = () => {
                   <div className="status-card__content">
                     <h3 className="status-card__title">Запис завершено</h3>
                     <p className="status-card__description">
-                      Тривалість: {formatTime(seconds)}. Виберіть тип аналізу для розпізнавання інтервалу.
+                      Тривалість: {formatTime(seconds)}. 
+                      {modelStatus === 'ready' 
+                        ? ' Натисніть "Розпізнати інтервал" для аналізу.'
+                        : ' Очікуємо готовності моделі для розпізнавання.'
+                      }
                     </p>
                   </div>
                 </div>
