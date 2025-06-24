@@ -3,7 +3,10 @@
 @use "./header";
 @use "./form";
 @use "./loading-indicator";
-@use "./audio-recognizer";
+
+@use "./recognition/audio-recognizer";
+@use "./recognition/recognition_results";
+
 @use "./training";
 @use "./piano-keyboard";
 
