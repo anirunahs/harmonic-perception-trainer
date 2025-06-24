@@ -6,8 +6,7 @@ from api.views import (CreateUserView, GenerateIntervalsView, SecureAudioView, C
                        UserProfileView, CreateTestSessionView, SubmitAnswerView, VocalRangeSetupView,
                        TestSessionListView, TestSessionDetailView, UserAchievementsView, 
                        GenerateSingleNoteView, TestingSecureAudioView, ClearTestingAudioView)
-from api.recognition_views import (IntervalRecognitionView, QuickRecognitionView, 
-                                   ModelStatusView, AudioDiagnosticsView)
+from api.recognition_views import (IntervalRecognitionView, ModelStatusView, AudioDiagnosticsView)
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
@@ -22,7 +21,6 @@ urlpatterns = [
     path("api/user/vocal-range/", VocalRangeSetupView.as_view(), name="vocal_range_setup"),
 
     path("api/recognition/interval/", IntervalRecognitionView.as_view(), name="interval_recognition"),
-    path("api/recognition/quick/", QuickRecognitionView.as_view(), name="quick_recognition"),
     path("api/recognition/status/", ModelStatusView.as_view(), name="model_status"),
     path("api/recognition/diagnostics/", AudioDiagnosticsView.as_view(), name="audio_diagnostics"),
 
