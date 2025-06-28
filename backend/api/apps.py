@@ -9,14 +9,14 @@ class ApiConfig(AppConfig):
 
     def ready(self):
         try:
-            from api.recognition_views import initialize_models
+            from api.recognition_views import initialize_model
             logger.info("Запуск ініціалізації моделі...")
             
             import threading
             
             def init_models_thread():
                 try:
-                    success = initialize_models()
+                    success = initialize_model()
                     if success:
                         logger.info("Модель успішно ініціалізована при запуску сервера")
                     else:

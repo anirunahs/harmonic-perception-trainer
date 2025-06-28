@@ -3,6 +3,8 @@
 @use "./header";
 @use "./form";
 @use "./loading-indicator";
+@use "./not-found";
+@use "./home";
 
 @use "./recognition/audio-recognizer";
 @use "./recognition/recognition_results";
