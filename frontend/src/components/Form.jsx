@@ -158,7 +158,7 @@ function Form({ route, method }) {
                         </div>
                         {!isLogin && (
                             <div className="form-help">
-                                Пароль повинен містити мінімум 3 символи
+                                Пароль повинен містити мінімум 5 символів
                             </div>
                         )}
                     </div>
