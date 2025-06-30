@@ -87,7 +87,6 @@ function NotFound() {
             </div>
           </div>
 
-          {/* Help Section */}
           <div className="help-section">
             <div className="help-card">
               <h3 className="help-title">Потрібна допомога?</h3>
