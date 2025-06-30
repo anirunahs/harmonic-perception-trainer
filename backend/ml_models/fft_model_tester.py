@@ -325,8 +325,8 @@ class FFTModelTester:
 def main():
     """Основна функція тестування"""
     
-    model_path = "fft_interval_model.keras"
-    scaler_path = "fft_scaler.joblib"
+    model_path = "ml_models/fft_interval_model.keras"
+    scaler_path = "ml_models/fft_scaler.joblib"
     dataset_dir = "../dataset-preparation/fft-dataset"
     
     if not os.path.exists(model_path):
