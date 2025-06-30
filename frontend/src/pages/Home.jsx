@@ -97,7 +97,7 @@ function Home() {
             </h1>
             
             <p className="hero-description">
-              HPT (Harmonic Pitch Trainer) - це комплексна платформа для навчання та тестування 
+              HPT (Harmonic Perception Trainer) - це комплексна платформа для навчання та тестування 
               музичних навичок з використанням штучного інтелекту для точного розпізнавання інтервалів.
             </p>
 
