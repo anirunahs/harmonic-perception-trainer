@@ -23,6 +23,7 @@ dataset-preparation/normalized-recordings/
 dataset-preparation/processed-segments/
 dataset-preparation/spectrograms/
 dataset-preparation/fft-dataset/
+dataset-preparation/quality_reports/
 backend/core/*.json
 backend/core/*.txt
 
