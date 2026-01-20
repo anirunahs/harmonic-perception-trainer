@@ -10,6 +10,7 @@ import api from "../api";
 const Training = () => {
   const [selectedIntervals, setSelectedIntervals] = useState([]);
   const [selectedNote, setSelectedNote] = useState("C");
+  const [selectedInstrument, setSelectedInstrument] = useState("piano");
   const [generatedIntervals, setGeneratedIntervals] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -66,11 +67,12 @@ const Training = () => {
     try {
       const response = await api.post("/api/training/generate-intervals/", {
         intervals: selectedIntervals,
-        base_note: selectedNote
+        base_note: selectedNote,
+        instrument: selectedInstrument
       });
 
       setGeneratedIntervals(response.data.intervals);
-      console.log('Generated intervals:', response.data.intervals);
+      console.log('Generated intervals:', response.data.intervals, 'Instrument:', selectedInstrument);
     } catch (error) {
       console.error("Помилка генерації інтервалів:", error);
       setAudioError("Помилка при генерації інтервалів. Спробуйте пізніше.");
@@ -108,6 +110,8 @@ const Training = () => {
             <TrainingSettings
               selectedNote={selectedNote}
               setSelectedNote={setSelectedNote}
+              selectedInstrument={selectedInstrument}
+              setSelectedInstrument={setSelectedInstrument}
               selectedIntervals={selectedIntervals}
               onIntervalToggle={handleIntervalToggle}
               onSelectAllIntervals={handleSelectAllIntervals}
