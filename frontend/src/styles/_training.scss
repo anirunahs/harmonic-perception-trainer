@@ -104,7 +104,13 @@
     font-weight: 600;
     color: $text-primary;
     margin-bottom: $space-4;
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    
+    svg {
+      color: $primary-color;
+    }
   }
 
   &__actions {
@@ -141,6 +147,56 @@
       border-color: $primary-color;
       box-shadow: $shadow;
     }
+  }
+}
+
+.instrument-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-3;
+}
+
+.instrument-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-4 $space-6;
+  border: 2px solid $border-color;
+  border-radius: $radius-lg;
+  background: $white;
+  cursor: pointer;
+  transition: all $transition-fast;
+  min-width: 100px;
+
+  &:hover {
+    border-color: $primary-color;
+    background: rgba($primary-color, 0.05);
+    transform: translateY(-2px);
+    box-shadow: $shadow;
+  }
+
+  &--active {
+    border-color: $primary-color;
+    background: linear-gradient(135deg, rgba($primary-color, 0.1), rgba($primary-color, 0.05));
+    box-shadow: $shadow-md;
+
+    .instrument-btn__name {
+      color: $primary-color;
+      font-weight: 600;
+    }
+  }
+
+  &__emoji {
+    font-size: 2rem;
+    line-height: 1;
+  }
+
+  &__name {
+    font-size: $font-size-sm;
+    font-weight: 500;
+    color: $text-secondary;
+    transition: all $transition-fast;
   }
 }
 
