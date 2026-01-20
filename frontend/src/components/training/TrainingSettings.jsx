@@ -3,10 +3,13 @@ import { Settings, Volume2, Trash2 } from "lucide-react";
 import LoadingIndicator from "../LoadingIndicator";
 import NoteSelector from "./NoteSelector";
 import IntervalSelector from "./IntervalSelector";
+import InstrumentSelector from "./InstrumentSelector";
 
 const TrainingSettings = ({
   selectedNote,
   setSelectedNote,
+  selectedInstrument,
+  setSelectedInstrument,
   selectedIntervals,
   onIntervalToggle,
   onSelectAllIntervals,
@@ -29,6 +32,11 @@ const TrainingSettings = ({
         <NoteSelector
           selectedNote={selectedNote}
           onNoteSelect={setSelectedNote}
+        />
+
+        <InstrumentSelector
+          selectedInstrument={selectedInstrument}
+          onInstrumentSelect={setSelectedInstrument}
         />
 
         <IntervalSelector
