@@ -1,13 +1,13 @@
 """
 AudioProcessingFacade - Simplified interface for audio recognition.
 
-Pattern: Facade (Structural)
+Pattern: Facade (Structural) + Strategy (Behavioral)
 
 Provides a single entry point for the complex audio recognition subsystem,
 hiding the complexity of:
 - Audio loading and decoding
 - Audio preprocessing (normalization, filtering)
-- Feature extraction
+- Feature extraction (via Strategy pattern)
 - Classification
 - Result formatting
 """
@@ -22,6 +22,7 @@ from typing import Optional, Tuple
 
 from core.ml import ModelManager
 from .result import RecognitionResult
+from .strategies import FeatureExtractionStrategy, FFTStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -33,28 +34,40 @@ class AudioProcessingFacade:
     Simplifies the recognition process to a single method call,
     encapsulating all the complexity of the subsystem.
     
+    Supports Strategy pattern for feature extraction algorithms.
+    
     Usage:
+        # Default FFT strategy
         facade = AudioProcessingFacade()
         result = facade.recognize_interval(audio_base64)
         
-        if result.success:
-            print(f"Detected: {result.best_prediction.interval}")
-        else:
-            print(f"Error: {result.error}")
+        # Custom strategy
+        from core.recognition.strategies import MFCCStrategy
+        facade = AudioProcessingFacade(strategy=MFCCStrategy())
+        result = facade.recognize_interval(audio_base64)
+        
+        # Change strategy dynamically
+        facade.set_strategy(FFTStrategy())
     """
     
     DEFAULT_SAMPLE_RATE = 22050
     TARGET_DURATION = 2.0  # seconds
     
-    def __init__(self, sample_rate: int = None):
+    def __init__(
+        self,
+        sample_rate: int = None,
+        strategy: FeatureExtractionStrategy = None
+    ):
         """
         Initialize facade.
         
         Args:
             sample_rate: Sample rate for audio processing (default: 22050)
+            strategy: Feature extraction strategy (default: FFTStrategy)
         """
         self._sample_rate = sample_rate or self.DEFAULT_SAMPLE_RATE
         self._model_manager = ModelManager.get_instance()
+        self._strategy = strategy or FFTStrategy()
     
     @property
     def is_ready(self) -> bool:
@@ -66,19 +79,48 @@ class AudioProcessingFacade:
         """Get model loading error if any."""
         return self._model_manager.load_error
     
-    def recognize_interval(self, audio_base64: str) -> RecognitionResult:
+    @property
+    def strategy(self) -> FeatureExtractionStrategy:
+        """Get current feature extraction strategy."""
+        return self._strategy
+    
+    @property
+    def strategy_name(self) -> str:
+        """Get current strategy name."""
+        return self._strategy.get_name()
+    
+    def set_strategy(self, strategy: FeatureExtractionStrategy) -> None:
+        """
+        Set feature extraction strategy.
+        
+        Args:
+            strategy: New strategy to use
+        """
+        if not isinstance(strategy, FeatureExtractionStrategy):
+            raise TypeError("Strategy must be a FeatureExtractionStrategy instance")
+        self._strategy = strategy
+        logger.info(f"Strategy changed to: {strategy.get_name()}")
+    
+    def recognize_interval(
+        self,
+        audio_base64: str,
+        use_strategy: bool = False
+    ) -> RecognitionResult:
         """
         Recognize musical interval from base64 encoded audio.
         
         This is the main entry point that orchestrates:
         1. Audio decoding
         2. Preprocessing
-        3. Feature extraction
+        3. Feature extraction (via Strategy or ModelManager)
         4. Classification
         5. Result formatting
         
         Args:
             audio_base64: Base64 encoded audio data
+            use_strategy: If True, use Strategy for feature extraction.
+                         If False (default), use ModelManager's extractor
+                         for compatibility with existing ML model.
             
         Returns:
             RecognitionResult with prediction or error
@@ -119,9 +161,15 @@ class AudioProcessingFacade:
                 error_code='processing_error'
             )
         
-        # Step 4: Extract features
+        # Step 4: Extract features (using Strategy or ModelManager)
         try:
-            features = self._model_manager.feature_extractor.extract_features(processed_audio)
+            if use_strategy:
+                # Use Strategy pattern for feature extraction
+                features = self._strategy.extract_features(processed_audio, sr)
+                logger.debug(f"Features extracted using strategy: {self._strategy.get_name()}")
+            else:
+                # Use ModelManager's feature extractor (production)
+                features = self._model_manager.feature_extractor.extract_features(processed_audio)
         except Exception as e:
             logger.error(f"Feature extraction failed: {e}")
             return RecognitionResult.error_result(
@@ -147,6 +195,99 @@ class AudioProcessingFacade:
             processing_time=processing_time,
             audio_duration=audio_duration
         )
+    
+    def extract_features_with_strategy(
+        self,
+        audio_base64: str
+    ) -> Tuple[Optional[np.ndarray], Optional[str]]:
+        """
+        Extract features using the current strategy.
+        
+        Useful for comparing different strategies or A/B testing.
+        
+        Args:
+            audio_base64: Base64 encoded audio data
+            
+        Returns:
+            Tuple of (features array, error message or None)
+        """
+        # Decode audio
+        audio, sr = self._decode_audio(audio_base64)
+        if audio is None:
+            return None, 'Failed to decode audio'
+        
+        if len(audio) == 0:
+            return None, 'Empty audio data'
+        
+        # Preprocess
+        try:
+            processed_audio = self._preprocess_audio(audio, sr)
+        except Exception as e:
+            return None, f'Preprocessing failed: {e}'
+        
+        # Extract features using strategy
+        try:
+            features = self._strategy.extract_features(processed_audio, sr)
+            return features, None
+        except Exception as e:
+            return None, f'Feature extraction failed: {e}'
+    
+    def compare_strategies(
+        self,
+        audio_base64: str,
+        strategies: list
+    ) -> dict:
+        """
+        Compare multiple feature extraction strategies.
+        
+        Args:
+            audio_base64: Base64 encoded audio data
+            strategies: List of FeatureExtractionStrategy instances
+            
+        Returns:
+            Dict with results for each strategy
+        """
+        # Decode and preprocess once
+        audio, sr = self._decode_audio(audio_base64)
+        if audio is None:
+            return {'error': 'Failed to decode audio'}
+        
+        if len(audio) == 0:
+            return {'error': 'Empty audio data'}
+        
+        try:
+            processed_audio = self._preprocess_audio(audio, sr)
+        except Exception as e:
+            return {'error': f'Preprocessing failed: {e}'}
+        
+        results = {}
+        
+        for strategy in strategies:
+            strategy_name = strategy.get_name()
+            start_time = time.time()
+            
+            try:
+                features = strategy.extract_features(processed_audio, sr)
+                extraction_time = time.time() - start_time
+                
+                results[strategy_name] = {
+                    'success': True,
+                    'feature_count': len(features),
+                    'extraction_time': round(extraction_time, 4),
+                    'feature_stats': {
+                        'mean': round(float(np.mean(features)), 4),
+                        'std': round(float(np.std(features)), 4),
+                        'min': round(float(np.min(features)), 4),
+                        'max': round(float(np.max(features)), 4)
+                    }
+                }
+            except Exception as e:
+                results[strategy_name] = {
+                    'success': False,
+                    'error': str(e)
+                }
+        
+        return results
     
     def _decode_audio(self, audio_base64: str) -> Tuple[Optional[np.ndarray], int]:
         """
