@@ -3,7 +3,7 @@
  * Better organized and easier to maintain.
  */
 
-import { useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useTestSession } from "./useTestSession";
 import { useTestProgress } from "./useTestProgress";
 import { useTestTimer } from "./useTestTimer";
