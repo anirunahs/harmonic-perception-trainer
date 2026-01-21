@@ -1,10 +1,9 @@
 import React from "react";
-import { Music, Piano, Guitar, SlidersHorizontal } from "lucide-react";
+import { Music, Piano, Guitar } from "lucide-react";
 
 const INSTRUMENTS = [
   { id: "piano", name: "Фортепіано", icon: Piano },
   { id: "guitar", name: "Гітара", icon: Guitar },
-  { id: "synth", name: "Синтезатор", icon: SlidersHorizontal },
 ];
 
 const InstrumentSelector = ({ selectedInstrument, onInstrumentSelect }) => {
