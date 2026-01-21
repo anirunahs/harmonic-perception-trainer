@@ -11,11 +11,15 @@ const IntervalCard = ({
   onPlayAudio,
   isGenerating
 }) => {
-  const isHarmonicPlaying = currentPlaying === `${interval.id}_harmonic`;
-  const isMelodicPlaying = currentPlaying === `${interval.id}_melodic`;
+  // currentPlaying can be object { id, type } or string (for backwards compatibility)
+  const currentId = typeof currentPlaying === 'object' ? currentPlaying?.id : currentPlaying;
+  const currentType = typeof currentPlaying === 'object' ? currentPlaying?.type : null;
+  
+  const isHarmonicPlaying = currentId === interval.id && currentType === 'harmonic';
+  const isMelodicPlaying = currentId === interval.id && currentType === 'melodic';
   const isHarmonicLoading = loadingAudio === `${interval.id}_harmonic`;
   const isMelodicLoading = loadingAudio === `${interval.id}_melodic`;
-  const isCurrentIntervalPlaying = currentPlaying && currentPlaying.startsWith(interval.id);
+  const isCurrentIntervalPlaying = currentId === interval.id;
 
   return (
     <div className="interval-card">
