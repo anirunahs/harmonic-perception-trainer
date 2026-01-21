@@ -1,0 +1,204 @@
+@use "./variables" as *;
+
+.experience-panel {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-3 $space-4;
+  margin-right: $space-3;
+  border-radius: $radius-md;
+  background: linear-gradient(135deg, rgba($primary-color, 0.05) 0%, rgba($accent-color, 0.05) 100%);
+  border: 1px solid rgba($primary-color, 0.1);
+  min-width: 200px;
+  max-width: 240px;
+  transition: all $transition-fast;
+
+  @media (max-width: $breakpoint-md) {
+    min-width: auto;
+    max-width: 180px;
+    padding: $space-2 $space-3;
+    margin-right: $space-2;
+  }
+
+  @media (max-width: $breakpoint-sm) {
+    max-width: 160px;
+    padding: $space-2;
+    margin-right: $space-1;
+  }
+
+  &--loading {
+    background: $gray-100;
+    border-color: $gray-200;
+  }
+
+  &__content {
+    display: flex;
+    flex-direction: column;
+    gap: $space-1;
+    width: 100%;
+    min-width: 0;
+  }
+
+  &__level {
+    display: flex;
+    align-items: center;
+    gap: $space-1;
+  }
+
+  &__icon {
+    width: 1rem;
+    height: 1rem;
+    color: $primary-color;
+    flex-shrink: 0;
+
+    @media (max-width: $breakpoint-md) {
+      width: 0.875rem;
+      height: 0.875rem;
+    }
+  }
+
+  &__level-text {
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: $text-primary;
+    white-space: nowrap;
+
+    @media (max-width: $breakpoint-md) {
+      font-size: $font-size-xs;
+    }
+  }
+
+  &__progress {
+    display: flex;
+    flex-direction: column;
+    gap: $space-1;
+  }
+
+  &__xp-info {
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+    font-size: $font-size-xs;
+    color: $text-secondary;
+    line-height: 1.2;
+
+    @media (max-width: $breakpoint-md) {
+      font-size: 0.7rem;
+    }
+  }
+
+  &__xp-current {
+    font-weight: 600;
+    color: $primary-color;
+  }
+
+  &__xp-separator {
+    color: $text-light;
+  }
+
+  &__xp-next {
+    color: $text-light;
+    display: none;
+
+    @media (min-width: $breakpoint-lg) {
+      display: inline;
+    }
+  }
+
+  &__progress-bar {
+    width: 100%;
+    height: 4px;
+    background-color: $gray-200;
+    border-radius: $radius-full;
+    overflow: hidden;
+    position: relative;
+
+    @media (max-width: $breakpoint-md) {
+      height: 3px;
+    }
+  }
+
+  &__progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, $primary-color 0%, $accent-color 100%);
+    border-radius: $radius-full;
+    transition: width $transition-normal;
+    position: relative;
+    overflow: hidden;
+  }
+
+  &__progress-shine {
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba($white, 0.3) 50%, transparent 100%);
+    animation: shine 2s infinite;
+  }
+
+  @keyframes shine {
+    0% {
+      left: -100%;
+    }
+    100% {
+      left: 100%;
+    }
+  }
+
+  &__xp-remaining {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-size: $font-size-xs;
+    color: $text-light;
+    white-space: nowrap;
+    line-height: 1.2;
+
+    @media (max-width: $breakpoint-md) {
+      font-size: 0.65rem;
+    }
+
+    @media (max-width: $breakpoint-sm) {
+      display: none;
+    }
+  }
+
+  &__trend-icon {
+    width: 0.75rem;
+    height: 0.75rem;
+    color: $accent-color;
+  }
+
+  &__skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    width: 100%;
+  }
+}
+
+.skeleton-line {
+  height: 12px;
+  background: linear-gradient(90deg, $gray-200 25%, $gray-100 50%, $gray-200 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  border-radius: $radius;
+
+  &--short {
+    width: 60%;
+  }
+
+  &--long {
+    width: 100%;
+  }
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
