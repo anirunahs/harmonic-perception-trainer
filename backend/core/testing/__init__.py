@@ -7,6 +7,7 @@ Patterns:
 """
 
 from .builder import TestSessionBuilder
+from .service import TestSessionService
 from .observers import (
     ProgressObserver,
     XPObserver,
@@ -18,6 +19,7 @@ from .observers import (
 
 __all__ = [
     'TestSessionBuilder',
+    'TestSessionService',
     'ProgressObserver',
     'XPObserver',
     'AchievementObserver',
