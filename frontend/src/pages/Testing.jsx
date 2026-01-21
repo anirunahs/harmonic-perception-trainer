@@ -85,9 +85,9 @@ const Testing = () => {
     }
   };
 
-  const handleAnswerSubmit = async (answer, confidence = null, recordedFrequency = null) => {
+  const handleAnswerSubmit = async (answer) => {
     try {
-      const result = await submitAnswer(answer, recordedFrequency, confidence);
+      const result = await submitAnswer(answer);
       
       if (testSettings.autoNext && !result.session_completed) {
         setTimeout(() => {
