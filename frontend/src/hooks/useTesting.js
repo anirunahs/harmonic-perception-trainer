@@ -37,6 +37,9 @@ export const useTesting = () => {
     getProgress,
   } = useTestProgress(currentSession);
 
+  // Pause state
+  const [isPaused, setIsPaused] = useState(false);
+
   // Timer management
   const {
     timeElapsed,
@@ -47,7 +50,7 @@ export const useTesting = () => {
     getQuestionTime,
   } = useTestTimer(
     currentSession,
-    false, // isPaused - can be added later
+    isPaused,
     currentSession?.time_limit || null
   );
 
@@ -55,10 +58,8 @@ export const useTesting = () => {
   const {
     streakCount,
     longestStreak,
-    confidence,
     hints,
     updateStreak,
-    setQuestionConfidence,
     useHint,
     resetStats,
   } = useTestStats();
@@ -71,12 +72,8 @@ export const useTesting = () => {
   }, [currentQuestion, resetQuestionTimer]);
 
   // Submit answer with all logic
-  const submitAnswer = useCallback(async (
-    answer = null,
-    recordedFrequency = null,
-    confidenceLevel = null
-  ) => {
-    if (!currentQuestion || !currentSession) return;
+  const submitAnswer = useCallback(async (answer) => {
+    if (!currentQuestion || !currentSession || !answer) return;
 
     const responseTime = getQuestionTime();
 
@@ -84,27 +81,19 @@ export const useTesting = () => {
       const result = await submitAnswerToAPI(
         currentQuestion.id,
         answer,
-        recordedFrequency,
-        confidenceLevel,
         responseTime
       );
 
       // Update answer in progress
       updateAnswer(currentQuestion.id, {
-        answer: answer || recordedFrequency,
+        answer: answer,
         is_correct: result.is_correct,
         question: currentQuestion,
         response_time: responseTime,
-        confidence: confidenceLevel,
       });
 
       // Update streak
       updateStreak(result.is_correct);
-
-      // Update confidence if provided
-      if (confidenceLevel !== null) {
-        setQuestionConfidence(currentQuestion.id, confidenceLevel);
-      }
 
       // Handle session completion
       if (result.session_completed) {
@@ -130,7 +119,6 @@ export const useTesting = () => {
     getQuestionTime,
     updateAnswer,
     updateStreak,
-    setQuestionConfidence,
     completeSession,
     timeElapsed,
     longestStreak,
@@ -154,11 +142,17 @@ export const useTesting = () => {
     }
   }, [createTestSession, resetProgress, resetStats, resetSessionTimer]);
 
+  // Toggle pause
+  const togglePause = useCallback(() => {
+    setIsPaused(prev => !prev);
+  }, []);
+
   // Reset everything
   const resetTest = useCallback(() => {
     resetSession();
     resetProgress();
     resetStats();
+    setIsPaused(false);
   }, [resetSession, resetProgress, resetStats]);
 
   // Navigation
@@ -195,12 +189,13 @@ export const useTesting = () => {
     // Timer
     timeElapsed,
     questionTimeLeft,
+    isPaused,
+    togglePause,
     getQuestionTime,
 
     // Statistics
     streakCount,
     longestStreak,
-    confidence,
     hints,
     useHint,
 
