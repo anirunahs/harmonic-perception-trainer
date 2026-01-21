@@ -83,6 +83,38 @@ class CreateTestSessionSerializer(serializers.Serializer):
         default='medium',
         required=False
     )
+    instrument = serializers.ChoiceField(
+        choices=[('piano', 'Фортепіано'), ('guitar', 'Гітара'), ('synth', 'Синтезатор')],
+        default='piano',
+        required=False,
+        help_text="Інструмент для генерації звуку"
+    )
+    time_limit = serializers.IntegerField(
+        min_value=0,
+        required=False,
+        allow_null=True,
+        help_text="Час на тест в секундах (null = без обмеження)"
+    )
+    enable_hints = serializers.BooleanField(
+        default=False,
+        required=False,
+        help_text="Дозволити підказки"
+    )
+    auto_next = serializers.BooleanField(
+        default=False,
+        required=False,
+        help_text="Автоматично переходити до наступного питання"
+    )
+    random_order = serializers.BooleanField(
+        default=False,
+        required=False,
+        help_text="Випадковий порядок питань"
+    )
+    include_reference_note = serializers.BooleanField(
+        default=True,
+        required=False,
+        help_text="Включати опорну ноту"
+    )
 
 
 class SubmitAnswerSerializer(serializers.Serializer):
