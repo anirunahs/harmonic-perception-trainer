@@ -1,4 +1,3 @@
-import os
 import time
 import numpy as np
 import logging
@@ -11,41 +10,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 import librosa
 
-from core.feature_extraction import FFTFeatureExtractor  
-from core.model_inference import IntervalClassifier
+from core.ml import ModelManager
 
 logger = logging.getLogger(__name__)
 
-_feature_extractor = None
-_classifier = None
-_models_loaded = False
-
-def initialize_model():
-    """Ініціалізація моделі"""
-    global _feature_extractor, _classifier, _models_loaded
-    
-    if _models_loaded:
-        return True
-        
-    try:
-        logger.info("Початок ініціалізації моделі...")
-        
-        _feature_extractor = FFTFeatureExtractor()
-        _classifier = IntervalClassifier()
-        
-        if _classifier.is_loaded:
-            _models_loaded = True
-            logger.info("Модель успішно ініціалізована")
-            return True
-        else:
-            logger.error("Модель не завантажена")
-            return False
-            
-    except Exception as e:
-        logger.error(f"Помилка ініціалізації моделі: {e}")
-        return False
-
-initialize_model()
+# Ініціалізація Singleton ModelManager при завантаженні модуля
+# Модель завантажується негайно (eager loading)
+_model_manager = ModelManager.get_instance()
 
 class AudioRecognitionSerializer(serializers.Serializer):
     """Серіалізатор для запиту розпізнавання"""
@@ -64,18 +35,18 @@ class IntervalRecognitionView(APIView):
     
     def post(self, request):
         """Швидкий аналіз аудіо"""
-        global _feature_extractor, _classifier, _models_loaded
+        # Використовуємо Singleton ModelManager
+        model_manager = ModelManager.get_instance()
         
-        if not _models_loaded:
-            if not initialize_model():
-                return Response(
-                    {
-                        'error': 'Модель розпізнавання недоступна',
-                        'details': 'Система не змогла ініціалізувати модель',
-                        'status': 'service_unavailable'
-                    }, 
-                    status=status.HTTP_503_SERVICE_UNAVAILABLE
-                )
+        if not model_manager.is_ready:
+            return Response(
+                {
+                    'error': 'Модель розпізнавання недоступна',
+                    'details': model_manager.load_error or 'Система не змогла ініціалізувати модель',
+                    'status': 'service_unavailable'
+                }, 
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
             
         serializer = AudioRecognitionSerializer(data=request.data)
         if not serializer.is_valid():
@@ -111,8 +82,8 @@ class IntervalRecognitionView(APIView):
                 )
             
             try:
-                features = _feature_extractor.extract_features(audio)
-                prediction = _classifier.predict(features)
+                features = model_manager.feature_extractor.extract_features(audio)
+                prediction = model_manager.classifier.predict(features)
                 
                 if prediction.get('error', False):
                     raise Exception(prediction.get('message', 'Помилка розпізнавання'))
@@ -208,24 +179,24 @@ class ModelStatusView(APIView):
     
     def get(self, request):
         """Отримання статусу системи"""
-        global _models_loaded, _classifier, _feature_extractor
-        
         try:
-            if not _models_loaded:
-                _models_loaded = initialize_model()
+            # Використовуємо Singleton ModelManager
+            model_manager = ModelManager.get_instance()
+            manager_status = model_manager.get_status()
             
-            model_info = _classifier.get_model_info() if _classifier else {'loaded': False}
+            model_info = manager_status.get('model_info', {'loaded': False})
             
             return Response({
-                'status': 'ready' if _models_loaded else 'error',
-                'models_loaded': _models_loaded,
+                'status': 'ready' if model_manager.is_ready else 'error',
+                'models_loaded': model_manager.is_ready,
+                'load_error': model_manager.load_error,
                 'components': {
                     'model': {
-                        'status': 'ready' if model_info.get('loaded', False) else 'error',
+                        'status': 'ready' if manager_status['components']['classifier']['loaded'] else 'error',
                         'info': model_info
                     },
                     'feature_extractor': {
-                        'status': 'ready' if _feature_extractor else 'error'
+                        'status': 'ready' if manager_status['components']['feature_extractor']['loaded'] else 'error'
                     }
                 },
                 'system_info': {
