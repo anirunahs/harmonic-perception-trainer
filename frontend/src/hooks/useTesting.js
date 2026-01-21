@@ -8,6 +8,7 @@ import { useTestSession } from "./useTestSession";
 import { useTestProgress } from "./useTestProgress";
 import { useTestTimer } from "./useTestTimer";
 import { useTestStats } from "./useTestStats";
+import api from "../api";
 
 export const useTesting = () => {
   // Session management
@@ -97,12 +98,36 @@ export const useTesting = () => {
 
       // Handle session completion
       if (result.session_completed) {
-        completeSession({
-          ...currentSession,
-          total_time: timeElapsed,
-          longest_streak: longestStreak,
-          final_streak: streakCount + (result.is_correct ? 1 : 0),
-        });
+        // Fetch final session data with calculated results
+        if (currentSession && currentSession.id) {
+          try {
+            const sessionResponse = await api.get(`/api/testing/sessions/${currentSession.id}/`);
+            const finalSessionData = sessionResponse.data;
+            
+            completeSession({
+              ...finalSessionData,
+              total_time: timeElapsed,
+              longest_streak: longestStreak,
+              final_streak: streakCount + (result.is_correct ? 1 : 0),
+            });
+          } catch (err) {
+            console.error('Error fetching final session data:', err);
+            // Fallback to current session data
+            completeSession({
+              ...currentSession,
+              total_time: timeElapsed,
+              longest_streak: longestStreak,
+              final_streak: streakCount + (result.is_correct ? 1 : 0),
+            });
+          }
+        } else {
+          completeSession({
+            ...currentSession,
+            total_time: timeElapsed,
+            longest_streak: longestStreak,
+            final_streak: streakCount + (result.is_correct ? 1 : 0),
+          });
+        }
       } else {
         // Auto-advance to next question
         progressNextQuestion();

@@ -71,20 +71,8 @@ const Testing = () => {
   useEffect(() => {
     if (sessionCompleted && results) {
       setShowResults(true);
-      // Fetch final session data when completed
-      if (currentSession && currentSession.id) {
-        api.get(`/api/testing/sessions/${currentSession.id}/`)
-          .then(response => {
-            // Update results with final session data
-            setResults(prev => ({
-              ...prev,
-              ...response.data
-            }));
-          })
-          .catch(err => console.error('Error fetching final session:', err));
-      }
     }
-  }, [sessionCompleted, results, currentSession]);
+  }, [sessionCompleted, results]);
 
   // Time left is now managed by useTestTimer hook
 
