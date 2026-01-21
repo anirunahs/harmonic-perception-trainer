@@ -1,0 +1,214 @@
+@use "../variables" as *;
+
+// Test Session Container
+.test-session {
+  background: $white;
+  border-radius: $radius-xl;
+  box-shadow: $shadow-lg;
+  border: 1px solid $border-color-light;
+  overflow: hidden;
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, $primary-color, $accent-color);
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $space-6;
+    border-bottom: 1px solid $border-color-light;
+    background: linear-gradient(135deg, rgba($primary-color, 0.02), rgba($accent-color, 0.01));
+
+    @media (max-width: $breakpoint-md) {
+      flex-direction: column;
+      gap: $space-4;
+      align-items: flex-start;
+    }
+  }
+
+  &__content {
+    padding: $space-8;
+    min-height: 400px;
+
+    @media (max-width: $breakpoint-md) {
+      padding: $space-6;
+    }
+  }
+
+  &__navigation {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $space-6;
+    border-top: 1px solid $border-color-light;
+    background: $bg-secondary;
+  }
+
+  &__error {
+    padding: $space-4 $space-6;
+    background: rgba($error-color, 0.05);
+    border-top: 1px solid rgba($error-color, 0.2);
+  }
+}
+
+// Test Info
+.test-info {
+  flex: 1;
+
+  .test-title {
+    font-size: $font-size-2xl;
+    font-weight: 700;
+    color: $text-primary;
+    margin-bottom: $space-4;
+    background: linear-gradient(135deg, $primary-color, $accent-color);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+
+    @media (max-width: $breakpoint-md) {
+      font-size: $font-size-xl;
+    }
+  }
+
+  .test-meta {
+    display: flex;
+    align-items: center;
+    gap: $space-6;
+    flex-wrap: wrap;
+
+    @media (max-width: $breakpoint-md) {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: $space-3;
+    }
+  }
+
+  .test-progress {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    min-width: 200px;
+
+    .progress-text {
+      font-size: $font-size-sm;
+      font-weight: 500;
+      color: $text-secondary;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: $gray-200;
+      border-radius: $radius-full;
+      overflow: hidden;
+      position: relative;
+
+      &__fill {
+        height: 100%;
+        background: linear-gradient(90deg, $primary-color, $accent-color);
+        border-radius: $radius-full;
+        transition: width $transition-normal;
+        position: relative;
+        overflow: hidden;
+
+        &::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba($white, 0.3), transparent);
+          animation: progress-shine 2s infinite;
+        }
+      }
+    }
+  }
+
+  .test-timer {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    padding: $space-2 $space-4;
+    background: $white;
+    border: 1px solid $border-color;
+    border-radius: $radius-lg;
+    box-shadow: $shadow-sm;
+
+    .timer-icon {
+      width: 1rem;
+      height: 1rem;
+      flex-shrink: 0;
+    }
+
+    .timer-text {
+      font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+      font-weight: 600;
+      font-size: $font-size-sm;
+      min-width: 50px;
+    }
+  }
+}
+
+@keyframes progress-shine {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+// Question Indicator
+.question-indicator {
+  display: flex;
+  align-items: baseline;
+  gap: $space-2;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+  padding: $space-2 $space-4;
+  background: $white;
+  border-radius: $radius-lg;
+  border: 1px solid $border-color;
+
+  .current-question {
+    font-size: $font-size-xl;
+    font-weight: 700;
+    color: $primary-color;
+  }
+
+  .separator {
+    color: $text-light;
+    font-weight: 400;
+  }
+
+  .total-questions {
+    color: $text-secondary;
+    font-weight: 500;
+  }
+}
+
+// Note Reproduction Placeholder
+.note-reproduction-placeholder {
+  text-align: center;
+  padding: $space-12;
+  color: $text-secondary;
+
+  h3 {
+    font-size: $font-size-xl;
+    font-weight: 600;
+    color: $text-primary;
+    margin-bottom: $space-4;
+  }
+
+  p {
+    font-size: $font-size-base;
+  }
+}
