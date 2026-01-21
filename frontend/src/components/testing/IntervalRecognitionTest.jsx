@@ -13,7 +13,8 @@ const IntervalRecognitionTest = ({
   isReviewMode = false,
   showFeedback = true,
   autoNext = false,
-  allowRetry = true
+  allowRetry = true,
+  intervals = [] // Selected intervals from test settings
 }) => {
   const [selectedAnswer, setSelectedAnswer] = useState("");
   const [hasAnswered, setHasAnswered] = useState(false);
@@ -21,7 +22,6 @@ const IntervalRecognitionTest = ({
   const [playCount, setPlayCount] = useState(0);
   const [showNoteNames, setShowNoteNames] = useState(false);
   const [feedbackShown, setFeedbackShown] = useState(false);
-  const [confidence, setConfidence] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
   
   // Use instrument hook for better sound quality
@@ -132,19 +132,42 @@ const IntervalRecognitionTest = ({
 
   const [answerOptions, setAnswerOptions] = useState([]);
 
+  // Get difficulty levels of selected intervals
+  const getSelectedDifficulties = () => {
+    if (!intervals || intervals.length === 0) {
+      // If no intervals selected, allow all difficulties
+      return ['easy', 'medium', 'hard'];
+    }
+    
+    const selectedIntervalOptions = intervalOptions.filter(opt => intervals.includes(opt.id));
+    const difficulties = [...new Set(selectedIntervalOptions.map(opt => opt.difficulty))];
+    return difficulties;
+  };
+
   useEffect(() => {
     if (question && question.interval_type) {
       const correctInterval = intervalOptions.find(opt => opt.id === question.interval_type);
-      const otherIntervals = intervalOptions.filter(opt => opt.id !== question.interval_type);
+      if (!correctInterval) return;
       
+      // Get allowed difficulties based on selected intervals
+      const allowedDifficulties = getSelectedDifficulties();
+      
+      // Filter other intervals to only include those with allowed difficulties
+      const otherIntervals = intervalOptions.filter(opt => 
+        opt.id !== question.interval_type && 
+        allowedDifficulties.includes(opt.difficulty)
+      );
+      
+      // Always use intervals with same difficulty categories as selected
+      // If not enough intervals, still use only allowed difficulties (don't fallback to all)
       const numberOfOptions = 4;
-      const shuffledOthers = otherIntervals.sort(() => Math.random() - 0.5);
+      const shuffledOthers = [...otherIntervals].sort(() => Math.random() - 0.5);
       const selectedOthers = shuffledOthers.slice(0, numberOfOptions - 1);
       
       const options = [correctInterval, ...selectedOthers].sort(() => Math.random() - 0.5);
       setAnswerOptions(options);
     }
-  }, [question]);
+  }, [question, intervals]);
 
   useEffect(() => {
     instrument.stopAll();
@@ -153,7 +176,6 @@ const IntervalRecognitionTest = ({
     setHasAnswered(false);
     setPlayCount(0);
     setFeedbackShown(false);
-    setConfidence(null);
     setRetryCount(0);
     
     if (feedbackTimeoutRef.current) {
@@ -224,11 +246,10 @@ const IntervalRecognitionTest = ({
     setCurrentPlaying(null);
   };
 
-  const handleAnswerSelect = (answerId, confidenceLevel = null) => {
+  const handleAnswerSelect = (answerId) => {
     if (hasAnswered && !isReviewMode && !allowRetry) return;
     
     setSelectedAnswer(answerId);
-    setConfidence(confidenceLevel);
     
     if (!isReviewMode) {
       setHasAnswered(true);
@@ -242,7 +263,6 @@ const IntervalRecognitionTest = ({
     setSelectedAnswer("");
     setHasAnswered(false);
     setFeedbackShown(false);
-    setConfidence(null);
     setRetryCount(prev => prev + 1);
   };
 
@@ -290,35 +310,6 @@ const IntervalRecognitionTest = ({
     }
   };
 
-  const getConfidenceButtons = (optionId) => {
-    if (hasAnswered || isReviewMode) return null;
-    
-    return (
-      <div className="confidence-buttons">
-        <button
-          className="confidence-btn confidence-btn--low"
-          onClick={() => handleAnswerSelect(optionId, 'low')}
-          title="Не впевнений"
-        >
-          ?
-        </button>
-        <button
-          className="confidence-btn confidence-btn--medium"
-          onClick={() => handleAnswerSelect(optionId, 'medium')}
-          title="Може бути"
-        >
-          ~
-        </button>
-        <button
-          className="confidence-btn confidence-btn--high"
-          onClick={() => handleAnswerSelect(optionId, 'high')}
-          title="Впевнений"
-        >
-          !
-        </button>
-      </div>
-    );
-  };
 
   if (!question) {
     return (
@@ -506,12 +497,6 @@ const IntervalRecognitionTest = ({
                 {getOptionIcon(option)}
               </button>
               
-              {!hasAnswered && !isReviewMode && (
-                <div className="confidence-selector">
-                  <span className="confidence-label">Впевненість:</span>
-                  {getConfidenceButtons(option.id)}
-                </div>
-              )}
             </div>
           ))}
         </div>
@@ -527,14 +512,6 @@ const IntervalRecognitionTest = ({
                   <div className="feedback-text">
                     <h4>Правильно!</h4>
                     <p>Це дійсно {intervalOptions.find(opt => opt.id === question.interval_type)?.name}</p>
-                    {confidence && (
-                      <p className="confidence-feedback">
-                        Рівень впевненості: {
-                          confidence === 'high' ? 'Високий' :
-                          confidence === 'medium' ? 'Середній' : 'Низький'
-                        }
-                      </p>
-                    )}
                   </div>
                 </>
               ) : (
