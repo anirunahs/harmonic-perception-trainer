@@ -24,6 +24,21 @@ import random
 from scipy import signal
 from datetime import datetime
 
+# Import audio generation module (Factory Method pattern)
+from core.audio import (
+    InstrumentFactory,
+    NOTE_FREQUENCIES,
+    INTERVALS_SEMITONES,
+    DEFAULT_SAMPLE_RATE,
+    get_note_frequency,
+    get_frequency_with_semitone_offset,
+    get_target_note,
+    save_audio,
+    combine_tones_harmonic,
+    combine_tones_melodic,
+    frequency_to_note,
+)
+
 
 class CreateUserView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -32,163 +47,94 @@ class CreateUserView(generics.CreateAPIView):
 
 
 class GenerateIntervalsView(APIView):
+    """
+    Generate interval audio files for training.
+    
+    Uses Factory Method pattern via InstrumentFactory to create
+    audio generators for different instruments.
+    """
     permission_classes = [IsAuthenticated]
+    
+    # Supported instruments for audio generation
+    SUPPORTED_INSTRUMENTS = ['piano', 'guitar', 'synth']
+    DEFAULT_INSTRUMENT = 'piano'
     
     def __init__(self):
         super().__init__()
-
-        self.note_frequencies = {
-            'C': 261.63,
-            'C#': 277.18,
-            'D': 293.66,
-            'D#': 311.13,
-            'E': 329.63,
-            'F': 349.23,
-            'F#': 369.99,
-            'G': 392.00,
-            'G#': 415.30,
-            'A': 440.00,
-            'A#': 466.16,
-            'B': 493.88
-        }
-        
-        self.intervals_semitones = {
-            'minor_second': 1,
-            'major_second': 2,
-            'minor_third': 3,
-            'major_third': 4,
-            'perfect_fourth': 5,
-            'tritone': 6,
-            'perfect_fifth': 7,
-            'minor_sixth': 8,
-            'major_sixth': 9,
-            'minor_seventh': 10,
-            'major_seventh': 11,
-            'perfect_octave': 12
-        }
-        
         self.audio_dir = os.path.join(settings.MEDIA_ROOT, 'training_audio')
         os.makedirs(self.audio_dir, exist_ok=True)
-
-    def get_note_frequency(self, note, semitone_offset=0):
-        """Отримати частоту ноти з урахуванням зміщення в півтонах"""
-        base_freq = self.note_frequencies.get(note, 440.0)
-        # Кожен півтон - це множення на 2^(1/12)
-        return base_freq * (2 ** (semitone_offset / 12))
-
-    def generate_piano_tone(self, frequency, duration=2.0, sample_rate=44100):
-        """Генерація тону з тембром, схожим на рояль"""
-        t = np.linspace(0, duration, int(sample_rate * duration), False)
-        
-        wave = np.sin(2 * np.pi * frequency * t)
-        
-        harmonics = [
-            (2, 0.3),
-            (3, 0.2),
-            (4, 0.1),
-            (5, 0.05),
-        ]
-        
-        for harmonic, amplitude in harmonics:
-            wave += amplitude * np.sin(2 * np.pi * frequency * harmonic * t)
-        
-        attack_time = 0.1
-        decay_time = 0.3
-        sustain_level = 0.7
-        release_time = 0.5
-        
-        envelope = np.ones_like(t)
-        
-        attack_samples = int(attack_time * sample_rate)
-        if attack_samples > 0:
-            envelope[:attack_samples] = np.linspace(0, 1, attack_samples)
-        
-        decay_samples = int(decay_time * sample_rate)
-        if decay_samples > 0 and attack_samples + decay_samples < len(envelope):
-            envelope[attack_samples:attack_samples + decay_samples] = np.linspace(1, sustain_level, decay_samples)
-        
-        sustain_start = attack_samples + decay_samples
-        release_start = len(envelope) - int(release_time * sample_rate)
-        if sustain_start < release_start:
-            envelope[sustain_start:release_start] = sustain_level
-        
-        release_samples = int(release_time * sample_rate)
-        if release_samples > 0:
-            envelope[-release_samples:] = np.linspace(sustain_level, 0, release_samples)
-        
-        wave *= envelope
-        
-        wave = wave / np.max(np.abs(wave)) * 0.7
-        
-        return wave
-
-    def save_audio(self, audio_data, filename, sample_rate=44100):
-        filepath = os.path.join(self.audio_dir, filename)
-        audio_int16 = np.int16(audio_data * 32767)
-        
-        wavfile.write(filepath, sample_rate, audio_int16)
-        return filepath
-
-    def get_target_note(self, base_note, semitones):
-        notes = list(self.note_frequencies.keys())
-        base_index = notes.index(base_note)
-        target_index = (base_index + semitones) % 12
-        return notes[target_index]
+        # Create instrument factory
+        self.factory = InstrumentFactory()
 
     def post(self, request):
         try:
             data = request.data
             intervals = data.get('intervals', [])
             base_note = data.get('base_note', 'C')
+            instrument = data.get('instrument', self.DEFAULT_INSTRUMENT)
+            duration = data.get('duration', 2.0)
             
+            # Validate inputs
             if not intervals:
                 return Response(
                     {'error': 'Не вказано інтервали'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            if base_note not in self.note_frequencies:
+            if base_note not in NOTE_FREQUENCIES:
                 return Response(
                     {'error': 'Невірна базова нота'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
+            if instrument not in self.SUPPORTED_INSTRUMENTS:
+                return Response(
+                    {'error': f'Непідтримуваний інструмент. Доступні: {", ".join(self.SUPPORTED_INSTRUMENTS)}'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Prepare user audio directory
             user_audio_dir = os.path.join(self.audio_dir, str(request.user.id))
             if os.path.exists(user_audio_dir):
                 shutil.rmtree(user_audio_dir)
             os.makedirs(user_audio_dir, exist_ok=True)
             
+            # Create generator using Factory Method
+            generator = self.factory.create_generator(instrument)
+            
             generated_intervals = []
             
             for interval_type in intervals:
-                if interval_type not in self.intervals_semitones:
+                if interval_type not in INTERVALS_SEMITONES:
                     continue
                 
-                semitones = self.intervals_semitones[interval_type]
-                target_note = self.get_target_note(base_note, semitones)
+                semitones = INTERVALS_SEMITONES[interval_type]
+                target_note = get_target_note(base_note, semitones)
                 
-                base_freq = self.get_note_frequency(base_note)
-                target_freq = self.get_note_frequency(base_note, semitones)
+                # Get frequencies using module functions
+                base_freq = get_note_frequency(base_note)
+                target_freq = get_frequency_with_semitone_offset(base_note, semitones)
                 
-                base_tone = self.generate_piano_tone(base_freq)
-                target_tone = self.generate_piano_tone(target_freq)
+                # Generate tones using the factory-created generator
+                base_tone = generator.generate_tone(base_freq, duration)
+                target_tone = generator.generate_tone(target_freq, duration)
                 
-                harmonic_audio = (base_tone + target_tone) / 2
-                melodic_audio = np.concatenate([base_tone, target_tone])
+                # Combine tones for harmonic and melodic intervals
+                harmonic_audio = combine_tones_harmonic(base_tone, target_tone)
+                melodic_audio = combine_tones_melodic(base_tone, target_tone)
                 
+                # Generate unique filenames
                 interval_id = str(uuid.uuid4())
                 harmonic_filename = f"{interval_id}_harmonic.wav"
                 melodic_filename = f"{interval_id}_melodic.wav"
                 
-                harmonic_path = self.save_audio(
-                    harmonic_audio, 
-                    os.path.join(str(request.user.id), harmonic_filename)
-                )
-                melodic_path = self.save_audio(
-                    melodic_audio, 
-                    os.path.join(str(request.user.id), melodic_filename)
-                )
+                # Save audio files
+                harmonic_path = os.path.join(user_audio_dir, harmonic_filename)
+                melodic_path = os.path.join(user_audio_dir, melodic_filename)
+                save_audio(harmonic_audio, harmonic_path)
+                save_audio(melodic_audio, melodic_path)
                 
+                # Build URLs
                 harmonic_url = f"/api/training/audio/{request.user.id}/{harmonic_filename}"
                 melodic_url = f"/api/training/audio/{request.user.id}/{melodic_filename}"
                 
@@ -198,6 +144,7 @@ class GenerateIntervalsView(APIView):
                     'base_note': base_note,
                     'target_note': target_note,
                     'semitones': semitones,
+                    'instrument': instrument,
                     'harmonic_url': harmonic_url,
                     'melodic_url': melodic_url
                 })
@@ -205,6 +152,7 @@ class GenerateIntervalsView(APIView):
             return Response({
                 'intervals': generated_intervals,
                 'base_note': base_note,
+                'instrument': instrument,
                 'total_count': len(generated_intervals)
             })
             
@@ -465,19 +413,9 @@ class CreateTestSessionView(APIView):
             )
     
     def _calculate_target_note(self, base_note, interval_type):
-        """Розрахунок цільової ноти на основі базової та інтервалу"""
-        notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-        intervals_semitones = {
-            'minor_second': 1, 'major_second': 2, 'minor_third': 3, 'major_third': 4,
-            'perfect_fourth': 5, 'tritone': 6, 'perfect_fifth': 7, 'minor_sixth': 8,
-            'major_sixth': 9, 'minor_seventh': 10, 'major_seventh': 11, 'perfect_octave': 12
-        }
-        
-        base_index = notes.index(base_note)
-        semitones = intervals_semitones[interval_type]
-        target_index = (base_index + semitones) % 12
-        
-        return notes[target_index]
+        """Calculate target note based on base note and interval type."""
+        semitones = INTERVALS_SEMITONES.get(interval_type, 0)
+        return get_target_note(base_note, semitones)
     
     def _generate_random_frequency(self, min_freq, max_freq):
         """Генерація випадкової частоти, яка відповідає музичній ноті"""
@@ -490,53 +428,59 @@ class CreateTestSessionView(APIView):
         
         return random.choice(frequencies)
     
-    def _frequency_to_note(self, frequency):
-        """Перетворення частоти в назву ноти"""
-        A4 = 440.0
-        notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-        
-        semitones_from_a4 = round(12 * np.log2(frequency / A4))
-        
-        octave = 4 + semitones_from_a4 // 12
-        note_index = (9 + semitones_from_a4) % 12  # A=9 в масиві нот
-        
-        return f"{notes[note_index]}{octave}"
+    def _frequency_to_note(self, freq):
+        """Convert frequency to note name with octave."""
+        return frequency_to_note(freq)
     
-    def _generate_test_audio(self, session):
-        """Генерація аудіофайлів для питань тесту"""
-        from .views import GenerateIntervalsView
+    def _generate_test_audio(self, session, instrument: str = 'piano'):
+        """
+        Generate audio files for test questions.
         
-        audio_generator = GenerateIntervalsView()
-        audio_generator.audio_dir = os.path.join(settings.MEDIA_ROOT, 'testing_audio')
-        os.makedirs(audio_generator.audio_dir, exist_ok=True)
+        Uses Factory Method pattern for instrument selection.
         
-        user_audio_dir = os.path.join(audio_generator.audio_dir, str(session.user.id))
+        Args:
+            session: TestSession instance
+            instrument: Instrument type ('piano', 'guitar', 'synth')
+        """
+        audio_dir = os.path.join(settings.MEDIA_ROOT, 'testing_audio')
+        os.makedirs(audio_dir, exist_ok=True)
+        
+        user_audio_dir = os.path.join(audio_dir, str(session.user.id))
         if os.path.exists(user_audio_dir):
             shutil.rmtree(user_audio_dir)
         os.makedirs(user_audio_dir, exist_ok=True)
         
+        # Create generator using Factory Method
+        factory = InstrumentFactory()
+        generator = factory.create_generator(instrument)
+        
         for question in session.questions.all():
             if session.test_type == 'interval_recognition':
-                base_freq = audio_generator.get_note_frequency(question.base_note[0])
-                target_freq = audio_generator.get_note_frequency(question.target_note[0])
+                # Extract note name (without octave) from question
+                base_note_name = question.base_note[:-1] if question.base_note[-1].isdigit() else question.base_note
+                target_note_name = question.target_note[:-1] if question.target_note[-1].isdigit() else question.target_note
                 
-                base_tone = audio_generator.generate_piano_tone(base_freq)
-                target_tone = audio_generator.generate_piano_tone(target_freq)
+                # Get frequencies
+                base_freq = get_note_frequency(base_note_name)
+                target_freq = get_note_frequency(target_note_name)
                 
-                harmonic_audio = (base_tone + target_tone) / 2
-                melodic_audio = np.concatenate([base_tone, target_tone])
+                # Generate tones using factory-created generator
+                base_tone = generator.generate_tone(base_freq)
+                target_tone = generator.generate_tone(target_freq)
                 
+                # Combine tones
+                harmonic_audio = combine_tones_harmonic(base_tone, target_tone)
+                melodic_audio = combine_tones_melodic(base_tone, target_tone)
+                
+                # Save audio files
                 harmonic_filename = f"question_{question.id}_harmonic.wav"
                 melodic_filename = f"question_{question.id}_melodic.wav"
                 
-                audio_generator.save_audio(
-                    harmonic_audio, 
-                    os.path.join(str(session.user.id), harmonic_filename)
-                )
-                audio_generator.save_audio(
-                    melodic_audio, 
-                    os.path.join(str(session.user.id), melodic_filename)
-                )
+                harmonic_path = os.path.join(user_audio_dir, harmonic_filename)
+                melodic_path = os.path.join(user_audio_dir, melodic_filename)
+                
+                save_audio(harmonic_audio, harmonic_path)
+                save_audio(melodic_audio, melodic_path)
                 
                 question.harmonic_audio_url = f"/api/testing/audio/{session.user.id}/{harmonic_filename}"
                 question.melodic_audio_url = f"/api/testing/audio/{session.user.id}/{melodic_filename}"
@@ -630,129 +574,72 @@ class SubmitAnswerView(APIView):
 
 
 class GenerateSingleNoteView(APIView):
+    """
+    Generate a single note audio file.
+    
+    Uses Factory Method pattern via InstrumentFactory.
+    """
     permission_classes = [IsAuthenticated]
+    
+    SUPPORTED_INSTRUMENTS = ['piano', 'guitar', 'synth']
+    DEFAULT_INSTRUMENT = 'piano'
     
     def __init__(self):
         super().__init__()
-        
-        self.note_frequencies = {
-            'C': 261.63,
-            'C#': 277.18,
-            'D': 293.66,
-            'D#': 311.13,
-            'E': 329.63,
-            'F': 349.23,
-            'F#': 369.99,
-            'G': 392.00,
-            'G#': 415.30,
-            'A': 440.00,
-            'A#': 466.16,
-            'B': 493.88
-        }
-        
         self.audio_dir = os.path.join(settings.MEDIA_ROOT, 'testing_audio')
         os.makedirs(self.audio_dir, exist_ok=True)
-
-    def get_note_frequency(self, note, octave=4):
-        """Отримати частоту ноти з вказаною октавою"""
-        base_freq = self.note_frequencies.get(note, 440.0)
-        octave_multiplier = 2 ** (octave - 4)
-        return base_freq * octave_multiplier
-
-    def generate_piano_tone(self, frequency, duration=3.0, sample_rate=44100):
-        """Генерація тону з тембром"""
-        t = np.linspace(0, duration, int(sample_rate * duration), False)
-        
-        wave = np.sin(2 * np.pi * frequency * t)
-        
-        harmonics = [
-            (2, 0.3), 
-            (3, 0.2), 
-            (4, 0.1), 
-            (5, 0.05),
-        ]
-        
-        for harmonic, amplitude in harmonics:
-            wave += amplitude * np.sin(2 * np.pi * frequency * harmonic * t)
-        
-        # ADSR
-        attack_time = 0.05
-        decay_time = 0.2
-        sustain_level = 0.7
-        release_time = 0.8
-        
-        envelope = np.ones_like(t)
-        
-        # Attack
-        attack_samples = int(attack_time * sample_rate)
-        if attack_samples > 0:
-            envelope[:attack_samples] = np.linspace(0, 1, attack_samples)
-        
-        # Decay
-        decay_samples = int(decay_time * sample_rate)
-        if decay_samples > 0 and attack_samples + decay_samples < len(envelope):
-            envelope[attack_samples:attack_samples + decay_samples] = np.linspace(1, sustain_level, decay_samples)
-        
-        # Sustain
-        sustain_start = attack_samples + decay_samples
-        release_start = len(envelope) - int(release_time * sample_rate)
-        if sustain_start < release_start:
-            envelope[sustain_start:release_start] = sustain_level
-        
-        # Release
-        release_samples = int(release_time * sample_rate)
-        if release_samples > 0:
-            envelope[-release_samples:] = np.linspace(sustain_level, 0, release_samples)
-        
-        wave *= envelope
-        
-        wave = wave / np.max(np.abs(wave)) * 0.7
-        
-        return wave
-
-    def save_audio(self, audio_data, filename, sample_rate=44100):
-        """Збереження аудіо в файл"""
-        filepath = os.path.join(self.audio_dir, filename)
-        audio_int16 = np.int16(audio_data * 32767)
-        
-        wavfile.write(filepath, sample_rate, audio_int16)
-        return filepath
+        self.factory = InstrumentFactory()
 
     def post(self, request):
-        """Генерація аудіо однієї ноти"""
+        """Generate audio for a single note"""
         try:
             data = request.data
             note = data.get('note', 'A')
             octave = data.get('octave', 4)
             duration = data.get('duration', 3.0)
+            instrument = data.get('instrument', self.DEFAULT_INSTRUMENT)
             
-            if note not in self.note_frequencies:
+            # Validate note
+            if note not in NOTE_FREQUENCIES:
                 return Response(
                     {'error': 'Невірна нота'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
+            # Validate octave
             if not (0 <= octave <= 8):
                 return Response(
                     {'error': 'Невірна октава (0-8)'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
+            # Validate instrument
+            if instrument not in self.SUPPORTED_INSTRUMENTS:
+                return Response(
+                    {'error': f'Непідтримуваний інструмент. Доступні: {", ".join(self.SUPPORTED_INSTRUMENTS)}'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Prepare user audio directory
             user_audio_dir = os.path.join(self.audio_dir, str(request.user.id))
             if os.path.exists(user_audio_dir):
                 shutil.rmtree(user_audio_dir)
             os.makedirs(user_audio_dir, exist_ok=True)
             
-            frequency = self.get_note_frequency(note, octave)
+            # Get frequency using module function
+            frequency = get_note_frequency(note, octave)
             
-            audio_data = self.generate_piano_tone(frequency, duration)
+            # Create generator using Factory Method
+            generator = self.factory.create_generator(instrument)
             
+            # Generate audio
+            audio_data = generator.generate_tone(frequency, duration)
+            
+            # Save audio file
             note_id = str(uuid.uuid4())
             filename = f"{note_id}_{note}{octave}.wav"
-            file_path = self.save_audio(
-                audio_data, 
-                os.path.join(str(request.user.id), filename)
-            )
+            file_path = os.path.join(user_audio_dir, filename)
+            save_audio(audio_data, file_path)
             
             audio_url = f"/api/testing/audio/{request.user.id}/{filename}"
             
@@ -762,6 +649,7 @@ class GenerateSingleNoteView(APIView):
                 'octave': octave,
                 'frequency': frequency,
                 'duration': duration,
+                'instrument': instrument,
                 'audio_url': audio_url,
                 'note_name': f"{note}{octave}"
             })
