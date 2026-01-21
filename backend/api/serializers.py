@@ -71,63 +71,52 @@ class TestSessionSerializer(serializers.ModelSerializer):
 
 
 class CreateTestSessionSerializer(serializers.Serializer):
-    test_type = serializers.ChoiceField(choices=TestSession.TEST_TYPES)
-    total_questions = serializers.IntegerField(min_value=1, max_value=50, default=10)
+    """
+    Serializer for creating test sessions.
+    
+    Clean, simple interface for interval recognition tests only.
+    """
+    test_type = serializers.ChoiceField(
+        choices=TestSession.TEST_TYPES,
+        help_text="Type of test (only 'interval_recognition' is supported)"
+    )
+    total_questions = serializers.IntegerField(
+        min_value=1, 
+        max_value=50, 
+        default=10,
+        help_text="Number of questions in the test"
+    )
     intervals = serializers.ListField(
         child=serializers.CharField(),
         required=False,
-        help_text="Список інтервалів для тесту розпізнавання"
+        help_text="List of intervals to include in test (default: all available)"
     )
-    difficulty = serializers.ChoiceField(
-        choices=[('easy', 'Легкий'), ('medium', 'Середній'), ('hard', 'Складний')],
-        default='medium',
-        required=False
-    )
-    instrument = serializers.ChoiceField(
-        choices=[('piano', 'Фортепіано'), ('guitar', 'Гітара'), ('synth', 'Синтезатор')],
-        default='piano',
+    instrument = serializers.CharField(
+        max_length=20, 
+        default='piano', 
         required=False,
-        help_text="Інструмент для генерації звуку"
-    )
-    time_limit = serializers.IntegerField(
-        min_value=0,
-        required=False,
-        allow_null=True,
-        help_text="Час на тест в секундах (null = без обмеження)"
-    )
-    enable_hints = serializers.BooleanField(
-        default=False,
-        required=False,
-        help_text="Дозволити підказки"
-    )
-    auto_next = serializers.BooleanField(
-        default=False,
-        required=False,
-        help_text="Автоматично переходити до наступного питання"
-    )
-    random_order = serializers.BooleanField(
-        default=False,
-        required=False,
-        help_text="Випадковий порядок питань"
-    )
-    include_reference_note = serializers.BooleanField(
-        default=True,
-        required=False,
-        help_text="Включати опорну ноту"
+        help_text="Instrument type for audio generation ('piano', 'guitar')"
     )
 
 
 class SubmitAnswerSerializer(serializers.Serializer):
-    question_id = serializers.IntegerField()
-    answer = serializers.CharField(max_length=50, required=False)
-    recorded_frequency = serializers.FloatField(required=False)
+    """
+    Serializer for submitting test answers.
     
-    def validate(self, data):
-        if not data.get('answer') and not data.get('recorded_frequency'):
-            raise serializers.ValidationError(
-                "Потрібно надати або текстову відповідь, або записану частоту"
-            )
-        return data
+    Simple interface for interval recognition answers.
+    """
+    question_id = serializers.IntegerField(help_text="ID of the question being answered")
+    answer = serializers.CharField(
+        max_length=50,
+        required=True,
+        help_text="Interval type answer (e.g., 'major_third', 'perfect_fifth')"
+    )
+    response_time = serializers.FloatField(
+        required=False, 
+        allow_null=True, 
+        min_value=0,
+        help_text="Time taken to answer in seconds"
+    )
 
 
 class VocalRangeSetupSerializer(serializers.Serializer):
