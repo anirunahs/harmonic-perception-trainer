@@ -1,7 +1,11 @@
 """
 Service layer for test session business logic.
 
+Clean, simple implementation for test session management.
 Separates business logic from API views.
+
+Pattern: Service Layer
+Purpose: Encapsulate test session operations and coordinate between components.
 """
 
 import logging
@@ -20,19 +24,24 @@ class TestSessionService:
     """
     Service for test session business logic.
     
-    Encapsulates complex operations and coordinates between
-    Builder, Observer patterns, and models.
+    Provides clean interface for creating sessions and submitting answers.
+    Coordinates Builder and Observer patterns.
     """
     
     @staticmethod
     def create_session(user: User, test_type: str, **options) -> TestSession:
         """
-        Create a new test session with all parameters.
+        Create a new test session.
+        
+        Simple interface for creating test sessions with all parameters.
         
         Args:
             user: User creating the session
-            test_type: Type of test ('interval_recognition' or 'note_reproduction')
-            **options: Additional test parameters
+            test_type: Type of test ('interval_recognition')
+            **options: Additional parameters:
+                - total_questions: Number of questions (default: 10)
+                - intervals: List of intervals (default: all available)
+                - instrument: Instrument type ('piano', 'guitar', default: 'piano')
             
         Returns:
             Created TestSession instance
@@ -43,37 +52,20 @@ class TestSessionService:
         """
         builder = TestSessionBuilder(user=user)
         
-        # Set required parameters
+        # Required parameters
         builder.set_test_type(test_type)
         builder.set_total_questions(options.get('total_questions', 10))
         
-        # Set optional parameters
-        if 'difficulty' in options:
-            builder.set_difficulty(options['difficulty'])
-        if 'time_limit' in options:
-            builder.set_time_limit(options['time_limit'])
-        if 'enable_hints' in options:
-            builder.enable_hints(options['enable_hints'])
-        if 'auto_next' in options:
-            builder.set_auto_next(options['auto_next'])
-        if 'random_order' in options:
-            builder.set_random_order(options['random_order'])
-        if 'include_reference_note' in options:
-            builder.set_include_reference_note(options['include_reference_note'])
+        # Optional parameters
+        if 'intervals' in options and options['intervals']:
+            builder.set_intervals(options['intervals'])
         
-        # Set test-type specific parameters
-        if test_type == 'interval_recognition':
-            if 'intervals' in options and options['intervals']:
-                builder.set_intervals(options['intervals'])
-            if 'instrument' in options:
-                builder.set_instrument(options['instrument'])
-        elif test_type == 'note_reproduction':
-            # Note reproduction specific settings
-            pass
+        if 'instrument' in options:
+            builder.set_instrument(options['instrument'])
         
-        # Build session
+        # Build and return session
         session = builder.build()
-        logger.info(f"Created test session {session.id} for user {user.id}")
+        logger.info(f"Created test session {session.id} for user {user.id}, type: {test_type}")
         
         return session
     
@@ -82,36 +74,40 @@ class TestSessionService:
         session: TestSession,
         question: TestQuestion,
         answer: Optional[str] = None,
-        recorded_frequency: Optional[float] = None,
-        confidence: Optional[float] = None,
         response_time: Optional[float] = None
     ) -> Dict[str, Any]:
         """
         Submit answer to a test question.
         
+        Validates answer, updates question, and checks if session is completed.
+        
         Args:
             session: TestSession instance
             question: TestQuestion instance
-            answer: Text answer (for interval recognition)
-            recorded_frequency: Recorded frequency (for note reproduction)
-            confidence: Confidence level (0.0-1.0)
+            answer: Text answer (interval type for interval recognition)
             response_time: Time taken to answer in seconds
             
         Returns:
-            Dict with result information
+            Dict with result information:
+                - is_correct: Whether answer is correct
+                - session_completed: Whether session is completed
+                - answered_count: Number of answered questions
+                - total_questions: Total number of questions
         """
-        # Validate answer based on test type
+        # Validate answer
         if session.test_type == 'interval_recognition':
             if not answer:
                 raise ValueError("Answer is required for interval recognition")
+            
             question.user_answer = answer
             question.is_correct = (answer == question.interval_type)
-        elif session.test_type == 'note_reproduction':
-            if recorded_frequency is None:
-                raise ValueError("Recorded frequency is required for note reproduction")
-            question.is_correct = question.check_frequency_answer(recorded_frequency)
+        else:
+            raise ValueError(f"Unsupported test type: {session.test_type}")
         
+        # Save question
         question.answered_at = datetime.now()
+        if response_time:
+            question.response_time = response_time
         question.save()
         
         # Check if session is completed
@@ -133,22 +129,25 @@ class TestSessionService:
         """
         Complete test session and notify observers.
         
+        Calculates results, awards XP, and notifies observers about completion.
+        
         Args:
             session: TestSession to complete
         """
+        # Calculate session results
         session.correct_answers = session.questions.filter(is_correct=True).count()
         session.calculate_accuracy()
+        session.calculate_experience()
         session.completed_at = datetime.now()
         session.is_completed = True
         session.save()
         
-        # Create subject and attach observers
+        # Notify observers about completion
         subject = ProgressSubject()
         subject.attach(XPObserver())
         subject.attach(AchievementObserver())
         subject.attach(AnalyticsObserver())
         
-        # Notify observers about test completion
         completion_event = ProgressEvent(
             event_type='test_completed',
             session=session,
@@ -157,14 +156,10 @@ class TestSessionService:
                 'accuracy': session.accuracy_percentage,
                 'correct_answers': session.correct_answers,
                 'total_questions': session.total_questions,
+                'experience_gained': session.experience_gained,
             },
             timestamp=datetime.now()
         )
         subject.notify(completion_event)
-        
-        # Update session with calculated experience
-        session.refresh_from_db()
-        session.calculate_experience()
-        session.save()
         
         logger.info(f"Completed test session {session.id} for user {session.user.id}")

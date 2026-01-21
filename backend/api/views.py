@@ -334,10 +334,11 @@ class CreateTestSessionView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         data = serializer.validated_data
-        test_type = data['test_type']
         
         try:
             # Use Service layer for session creation
+            # Extract test_type separately to avoid duplicate keyword argument
+            test_type = data.pop('test_type')
             session = TestSessionService.create_session(
                 user=request.user,
                 test_type=test_type,
@@ -388,8 +389,6 @@ class SubmitAnswerView(APIView):
                 session=question.session,
                 question=question,
                 answer=data.get('answer'),
-                recorded_frequency=data.get('recorded_frequency'),
-                confidence=data.get('confidence'),
                 response_time=data.get('response_time')
             )
             

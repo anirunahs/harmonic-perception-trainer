@@ -5,7 +5,7 @@ import TestTypeSelection from "../components/testing/TestTypeSelection";
 import TestSettings from "../components/testing/TestSettings";
 import TestSession from "../components/testing/TestSession";
 import TestResults from "../components/testing/TestResults";
-import { useTesting } from "../hooks/useTestingRefactored";
+import { useTesting } from "../hooks/useTesting";
 import LoadingIndicator from "../components/LoadingIndicator";
 
 const Testing = () => {
@@ -85,9 +85,9 @@ const Testing = () => {
     }
   };
 
-  const handleAnswerSubmit = async (answer, confidence = null, recordedFrequency = null) => {
+  const handleAnswerSubmit = async (answer) => {
     try {
-      const result = await submitAnswer(answer, recordedFrequency, confidence);
+      const result = await submitAnswer(answer);
       
       if (testSettings.autoNext && !result.session_completed) {
         setTimeout(() => {
