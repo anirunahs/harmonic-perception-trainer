@@ -84,27 +84,17 @@ class XPObserver(ProgressObserver):
     def _award_completion_xp(self, event: ProgressEvent):
         """Award XP for test completion."""
         session = event.session
-        session.calculate_experience()
+        experience_gained = event.data.get('experience_gained', session.experience_gained)
         
         profile, _ = UserProfile.objects.get_or_create(user=event.user)
-        level_up = profile.add_experience(session.experience_gained)
+        level_up = profile.add_experience(experience_gained)
         
-        # Notify about level up if occurred
+        # Store level up info in event data for other observers
         if level_up:
-            level_up_event = ProgressEvent(
-                event_type='level_up',
-                session=session,
-                user=event.user,
-                data={'new_level': profile.level},
-                timestamp=datetime.now()
-            )
-            # Notify other observers about level up
-            if hasattr(session, '_observers'):
-                for observer in session._observers:
-                    if isinstance(observer, AchievementObserver):
-                        observer.update(level_up_event)
+            event.data['level_up'] = True
+            event.data['new_level'] = profile.level
         
-        logger.info(f"Awarded {session.experience_gained} XP to user {event.user.id} for test completion")
+        logger.info(f"Awarded {experience_gained} XP to user {event.user.id} for test completion")
     
     def _award_level_bonus(self, event: ProgressEvent):
         """Award bonus XP for level up."""
@@ -127,6 +117,9 @@ class AchievementObserver(ProgressObserver):
         if event.event_type == 'test_completed':
             self._check_completion_achievements(event)
             self._check_accuracy_achievements(event)
+            # Check level achievements if level up occurred
+            if event.data.get('level_up'):
+                self._check_level_achievements(event)
         elif event.event_type == 'level_up':
             self._check_level_achievements(event)
         elif event.event_type == 'correct_answer':
@@ -176,9 +169,16 @@ class AchievementObserver(ProgressObserver):
         user = event.user
         new_level = event.data.get('new_level', 1)
         
+        # Get user profile to check current level
+        try:
+            profile = UserProfile.objects.get(user=user)
+            current_level = profile.level
+        except UserProfile.DoesNotExist:
+            return
+        
         achievements = Achievement.objects.filter(
             achievement_type='level',
-            requirement_value=new_level
+            requirement_value=current_level
         )
         
         for achievement in achievements:
