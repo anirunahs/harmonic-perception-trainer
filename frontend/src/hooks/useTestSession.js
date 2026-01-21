@@ -20,13 +20,7 @@ export const useTestSession = () => {
         test_type: testType,
         total_questions: options.totalQuestions || 10,
         intervals: options.intervals || [],
-        difficulty: options.difficulty || 'medium',
         instrument: options.instrument || 'piano',
-        time_limit: options.timeLimit || null,
-        enable_hints: options.enableHints || false,
-        auto_next: options.autoNext || false,
-        random_order: options.randomOrder || false,
-        include_reference_note: options.includeReferenceNote !== false,
       });
 
       const session = response.data;
@@ -42,18 +36,16 @@ export const useTestSession = () => {
     }
   }, []);
 
-  const submitAnswer = useCallback(async (questionId, answer, recordedFrequency = null, confidence = null, responseTime = null) => {
+  const submitAnswer = useCallback(async (questionId, answer, responseTime = null) => {
     setIsLoading(true);
     setError(null);
 
     try {
       const payload = {
         question_id: questionId,
+        answer: answer,
       };
 
-      if (answer) payload.answer = answer;
-      if (recordedFrequency) payload.recorded_frequency = recordedFrequency;
-      if (confidence !== null) payload.confidence = confidence;
       if (responseTime !== null) payload.response_time = responseTime;
 
       const response = await api.post('/api/testing/submit-answer/', payload);
