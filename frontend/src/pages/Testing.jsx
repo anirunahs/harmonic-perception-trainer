@@ -5,7 +5,7 @@ import TestTypeSelection from "../components/testing/TestTypeSelection";
 import TestSettings from "../components/testing/TestSettings";
 import TestSession from "../components/testing/TestSession";
 import TestResults from "../components/testing/TestResults";
-import { useTesting } from "../hooks/useTesting";
+import { useTesting } from "../hooks/useTestingRefactored";
 import LoadingIndicator from "../components/LoadingIndicator";
 
 const Testing = () => {
@@ -14,14 +14,15 @@ const Testing = () => {
     totalQuestions: 10,
     intervals: [],
     difficulty: "medium",
+    instrument: "piano",
     timeLimit: null,
+    enableHints: false,
     showProgress: true,
     autoNext: false,
     randomOrder: false,
     includeReferenceNote: true,
   });
   const [showResults, setShowResults] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(null);
   const [isPaused, setIsPaused] = useState(false);
 
   const {
@@ -40,7 +41,9 @@ const Testing = () => {
     resetTest,
     getTestProgress,
     getCorrectAnswersCount,
-    setError
+    setError,
+    timeElapsed,
+    questionTimeLeft,
   } = useTesting();
 
   const intervals = [
@@ -70,40 +73,13 @@ const Testing = () => {
     }
   }, [sessionCompleted, results]);
 
-  useEffect(() => {
-    if (currentSession && testSettings.timeLimit) {
-      setTimeLeft(testSettings.timeLimit);
-    }
-  }, [currentSession, testSettings.timeLimit]);
-
-  useEffect(() => {
-    if (currentSession && testSettings.timeLimit && !isPaused && !sessionCompleted) {
-      const timer = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            handleTimeUp();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      return () => clearInterval(timer);
-    }
-  }, [currentSession, testSettings.timeLimit, isPaused, sessionCompleted]);
-
-  const handleTimeUp = () => {
-    console.log("Час вийшов!");
-  };
+  // Time left is now managed by useTestTimer hook
 
   const handleStartTest = async () => {
     if (!selectedTestType) return;
 
     try {
       await createTestSession(selectedTestType, testSettings);
-      if (testSettings.timeLimit) {
-        setTimeLeft(testSettings.timeLimit);
-      }
     } catch (error) {
       console.error('Помилка створення тесту:', error);
     }
@@ -127,7 +103,6 @@ const Testing = () => {
     resetTest();
     setSelectedTestType(null);
     setShowResults(false);
-    setTimeLeft(null);
     setIsPaused(false);
   };
 
@@ -174,7 +149,7 @@ const Testing = () => {
               session={currentSession}
               currentQuestion={currentQuestion}
               questionIndex={questionIndex}
-              timeLeft={timeLeft}
+              timeLeft={questionTimeLeft}
               isPaused={isPaused}
               testSettings={testSettings}
               intervals={intervals}
