@@ -5,7 +5,7 @@ import TestTypeSelection from "../components/testing/TestTypeSelection";
 import TestSettings from "../components/testing/TestSettings";
 import TestSession from "../components/testing/TestSession";
 import TestResults from "../components/testing/TestResults";
-import { useTesting } from "../hooks/useTestingRefactored";
+import { useTesting } from "../hooks/useTesting";
 import LoadingIndicator from "../components/LoadingIndicator";
 
 const Testing = () => {
