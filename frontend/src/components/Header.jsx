@@ -1,8 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
 import { Music, LogOut, Home, Mic, Ear, BookOpenCheck } from "lucide-react";
+import ExperiencePanel from "./ExperiencePanel";
+import { useUserProfile } from "../hooks/useUserProfile";
 
 function Header() {
   const location = useLocation();
+  const { profile, isLoading } = useUserProfile();
 
   const isActive = (path) => location.pathname === path;
 
@@ -66,6 +69,7 @@ function Header() {
         </nav>
 
         <div className="header__actions">
+          <ExperiencePanel profile={profile} isLoading={isLoading} />
           <Link to="/logout" className="header__logout-btn">
             <LogOut className="header__logout-icon" />
             <span className="header__logout-text">Вийти</span>
