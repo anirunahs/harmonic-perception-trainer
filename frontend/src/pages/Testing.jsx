@@ -7,6 +7,7 @@ import TestSession from "../components/testing/TestSession";
 import TestResults from "../components/testing/TestResults";
 import { useTesting } from "../hooks/useTesting";
 import LoadingIndicator from "../components/LoadingIndicator";
+import api from "../api";
 
 const Testing = () => {
   const [selectedTestType, setSelectedTestType] = useState(null);
@@ -70,8 +71,20 @@ const Testing = () => {
   useEffect(() => {
     if (sessionCompleted && results) {
       setShowResults(true);
+      // Fetch final session data when completed
+      if (currentSession && currentSession.id) {
+        api.get(`/api/testing/sessions/${currentSession.id}/`)
+          .then(response => {
+            // Update results with final session data
+            setResults(prev => ({
+              ...prev,
+              ...response.data
+            }));
+          })
+          .catch(err => console.error('Error fetching final session:', err));
+      }
     }
-  }, [sessionCompleted, results]);
+  }, [sessionCompleted, results, currentSession]);
 
   // Time left is now managed by useTestTimer hook
 

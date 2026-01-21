@@ -50,11 +50,8 @@ export const useTestSession = () => {
 
       const response = await api.post('/api/testing/submit-answer/', payload);
       
-      // Refresh session if completed
-      if (response.data.session_completed && currentSession) {
-        const sessionResponse = await api.get(`/api/testing/sessions/${currentSession.id}/`);
-        setCurrentSession(sessionResponse.data);
-      }
+      // Don't refresh session here - let the parent component handle completion
+      // This prevents resetting currentQuestion when session completes
       
       return response.data;
     } catch (err) {
