@@ -39,14 +39,9 @@ from core.audio import (
     frequency_to_note,
 )
 
-# Import testing module (Builder and Observer patterns)
+# Import testing module (Builder, Observer patterns, and Service)
 from core.testing import (
-    TestSessionBuilder,
-    ProgressSubject,
-    XPObserver,
-    AchievementObserver,
-    AnalyticsObserver,
-    ProgressEvent,
+    TestSessionService,
 )
 
 
@@ -340,36 +335,14 @@ class CreateTestSessionView(APIView):
         
         data = serializer.validated_data
         test_type = data['test_type']
-        total_questions = data['total_questions']
         
         try:
-            # Use Builder pattern for session creation
-            builder = TestSessionBuilder(user=request.user)
-            
-            builder.set_test_type(test_type)
-            builder.set_total_questions(total_questions)
-            
-            # Configure builder with all parameters
-            if 'difficulty' in data:
-                builder.set_difficulty(data['difficulty'])
-            if 'time_limit' in data:
-                builder.set_time_limit(data['time_limit'])
-            if 'enable_hints' in data:
-                builder.enable_hints(data['enable_hints'])
-            
-            # Configure builder based on test type
-            if test_type == 'interval_recognition':
-                intervals = data.get('intervals', [])
-                if intervals:
-                    builder.set_intervals(intervals)
-                instrument = data.get('instrument', 'piano')
-                builder.set_instrument(instrument)
-            elif test_type == 'note_reproduction':
-                # Note reproduction specific settings can be added here
-                pass
-            
-            # Build session with all questions and audio
-            session = builder.build()
+            # Use Service layer for session creation
+            session = TestSessionService.create_session(
+                user=request.user,
+                test_type=test_type,
+                **data
+            )
             
             session_serializer = TestSessionSerializer(session)
             return Response(session_serializer.data, status=status.HTTP_201_CREATED)
@@ -409,65 +382,28 @@ class SubmitAnswerView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        if question.session.test_type == 'interval_recognition':
-            question.user_answer = data.get('answer')
-            question.is_correct = (question.user_answer == question.interval_type)
-        
-        elif question.session.test_type == 'note_reproduction':
-            recorded_freq = data.get('recorded_frequency')
-            question.is_correct = question.check_frequency_answer(recorded_freq)
-        
-        question.answered_at = datetime.now()
-        question.save()
-        
-        session = question.session
-        answered_questions = session.questions.filter(answered_at__isnull=False).count()
-        
-        if answered_questions == session.total_questions:
-            self._complete_session(session)
-        
-        return Response({
-            'is_correct': question.is_correct,
-            'session_completed': session.is_completed
-        })
-    
-    def _complete_session(self, session):
-        """
-        Complete test session using Observer pattern.
-        
-        Pattern: Observer (Behavioral)
-        Uses ProgressSubject to notify observers about test completion.
-        """
-        session.correct_answers = session.questions.filter(is_correct=True).count()
-        session.calculate_accuracy()
-        session.completed_at = datetime.now()
-        session.is_completed = True
-        session.save()
-        
-        # Create subject and attach observers
-        subject = ProgressSubject()
-        subject.attach(XPObserver())
-        subject.attach(AchievementObserver())
-        subject.attach(AnalyticsObserver())
-        
-        # Notify observers about test completion
-        completion_event = ProgressEvent(
-            event_type='test_completed',
-            session=session,
-            user=session.user,
-            data={
-                'accuracy': session.accuracy_percentage,
-                'correct_answers': session.correct_answers,
-                'total_questions': session.total_questions,
-            },
-            timestamp=datetime.now()
-        )
-        subject.notify(completion_event)
-        
-        # Update session with calculated experience
-        session.refresh_from_db()
-        session.calculate_experience()
-        session.save()
+        try:
+            # Use Service layer for submitting answer
+            result = TestSessionService.submit_answer(
+                session=question.session,
+                question=question,
+                answer=data.get('answer'),
+                recorded_frequency=data.get('recorded_frequency'),
+                confidence=data.get('confidence'),
+                response_time=data.get('response_time')
+            )
+            
+            return Response({
+                'is_correct': result['is_correct'],
+                'session_completed': result['session_completed'],
+                'answered_count': result['answered_count'],
+                'total_questions': result['total_questions']
+            })
+        except ValueError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class GenerateSingleNoteView(APIView):
