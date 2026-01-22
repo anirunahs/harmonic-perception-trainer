@@ -412,9 +412,14 @@
   background: $white;
   border-radius: $radius-xl;
   padding: $space-8;
-  box-shadow: $shadow-lg;
+  box-shadow: $shadow;
   border: 1px solid $border-color-light;
   position: relative;
+  transition: all $transition-normal;
+
+  &:hover {
+    box-shadow: $shadow-md;
+  }
 
   &::before {
     content: '';
@@ -422,7 +427,7 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 6px;
+    height: 4px;
     background: linear-gradient(90deg, $primary-color, $accent-color);
     border-radius: $radius-xl $radius-xl 0 0;
   }
@@ -647,11 +652,12 @@
 
 .options-grid--enhanced {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: $space-4;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: $space-5;
 
   @media (max-width: $breakpoint-md) {
     grid-template-columns: 1fr;
+    gap: $space-4;
   }
 }
 
@@ -660,11 +666,15 @@
 
   .interval-option {
     width: 100%;
-    padding: $space-5;
-    border-radius: $radius-lg;
+    padding: $space-6;
+    border: 2px solid $border-color;
+    border-radius: $radius-xl;
+    background: $white;
     transition: all $transition-normal;
     position: relative;
     overflow: hidden;
+    box-shadow: $shadow-sm;
+    cursor: pointer;
 
     &::before {
       content: '';
@@ -672,14 +682,61 @@
       top: 0;
       left: 0;
       right: 0;
-      height: 3px;
-      background: linear-gradient(90deg, transparent, $primary-color, transparent);
+      height: 4px;
+      background: linear-gradient(90deg, $primary-color, $accent-color);
       transform: scaleX(0);
       transition: transform $transition-normal;
     }
 
-    &:hover:not(:disabled)::before {
-      transform: scaleX(1);
+    &:hover:not(:disabled) {
+      border-color: $primary-color;
+      box-shadow: $shadow-md;
+      transform: translateY(-2px);
+
+      &::before {
+        transform: scaleX(1);
+      }
+    }
+
+    &:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    &--selected {
+      border-color: $primary-color;
+      background: linear-gradient(135deg, rgba($primary-color, 0.05), rgba($accent-color, 0.02));
+      box-shadow: $shadow-md;
+
+      &::before {
+        transform: scaleX(1);
+      }
+    }
+
+    &--correct {
+      border-color: $success-color;
+      background: linear-gradient(135deg, rgba($success-color, 0.1), rgba($success-color, 0.05));
+      box-shadow: $shadow-md;
+
+      &::before {
+        background: linear-gradient(90deg, $success-color, rgba($success-color, 0.5));
+        transform: scaleX(1);
+      }
+    }
+
+    &--wrong {
+      border-color: $error-color;
+      background: linear-gradient(135deg, rgba($error-color, 0.1), rgba($error-color, 0.05));
+      box-shadow: $shadow-md;
+
+      &::before {
+        background: linear-gradient(90deg, $error-color, rgba($error-color, 0.5));
+        transform: scaleX(1);
+      }
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
 
     .option-header {
@@ -696,25 +753,33 @@
       }
     }
 
-    .option-hints {
-      margin-top: $space-3;
-      padding-top: $space-3;
-      border-top: 1px solid $border-color-light;
-
-      .option-description {
+      .option-semitones {
         font-size: $font-size-sm;
         color: $text-secondary;
-        margin-bottom: $space-2;
-        font-style: italic;
+        font-weight: 500;
+        margin-top: $space-2;
+        font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
       }
 
-      .option-example {
-        font-size: $font-size-xs;
-        color: $primary-color;
-        font-weight: 500;
+      .option-hints {
+        margin-top: $space-3;
+        padding-top: $space-3;
+        border-top: 1px solid $border-color-light;
+
+        .option-description {
+          font-size: $font-size-sm;
+          color: $text-secondary;
+          margin-bottom: $space-2;
+          font-style: italic;
+        }
+
+        .option-example {
+          font-size: $font-size-xs;
+          color: $primary-color;
+          font-weight: 500;
+        }
       }
     }
-  }
 
   .confidence-selector {
     display: flex;
