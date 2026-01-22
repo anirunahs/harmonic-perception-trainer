@@ -96,6 +96,21 @@ const INTERVALS = {
 };
 
 /**
+ * Chord semitones mapping (from root note)
+ */
+const CHORDS = {
+  'major': [0, 4, 7],           // Root, Major Third, Perfect Fifth
+  'minor': [0, 3, 7],           // Root, Minor Third, Perfect Fifth
+  'diminished': [0, 3, 6],      // Root, Minor Third, Diminished Fifth
+  'augmented': [0, 4, 8],       // Root, Major Third, Augmented Fifth
+  'major_seventh': [0, 4, 7, 11],  // Major chord + Major Seventh
+  'minor_seventh': [0, 3, 7, 10], // Minor chord + Minor Seventh
+  'dominant_seventh': [0, 4, 7, 10], // Major chord + Minor Seventh
+  'suspended_fourth': [0, 5, 7], // Root, Perfect Fourth, Perfect Fifth
+  'suspended_second': [0, 2, 7],  // Root, Major Second, Perfect Fifth
+};
+
+/**
  * Hook for playing instruments with high-quality samples
  */
 export const useInstrument = (instrumentType = 'piano') => {
@@ -258,6 +273,103 @@ export const useInstrument = (instrumentType = 'piano') => {
   }, [isLoaded]);
 
   /**
+   * Play chord (multiple notes simultaneously)
+   */
+  const playChord = useCallback(async (rootNote, chordType, duration = '2n') => {
+    if (!instrumentRef.current || !isLoaded) {
+      console.warn('Instrument not loaded');
+      return;
+    }
+    
+    if (Tone.context.state !== 'running') {
+      await Tone.start();
+    }
+    
+    const semitonesList = CHORDS[chordType];
+    if (!semitonesList) {
+      console.error('Unknown chord type:', chordType);
+      return;
+    }
+    
+    // Calculate all notes in the chord
+    const chordNotes = semitonesList.map(semitones => {
+      if (semitones === 0) {
+        return rootNote;
+      }
+      // Calculate octave (if semitones >= 12, move to next octave)
+      const octaveOffset = Math.floor(semitones / 12);
+      const noteSemitones = semitones % 12;
+      const targetNote = Tone.Frequency(rootNote).transpose(noteSemitones).toNote();
+      
+      // Adjust octave if needed
+      if (octaveOffset > 0) {
+        const baseOctave = parseInt(rootNote.match(/\d+/)?.[0] || '4');
+        const noteName = targetNote.replace(/\d+/, '');
+        return `${noteName}${baseOctave + octaveOffset}`;
+      }
+      
+      return targetNote;
+    });
+    
+    // Play all notes simultaneously
+    instrumentRef.current.triggerAttackRelease(chordNotes, duration);
+    
+    return { rootNote, chordType, chordNotes };
+  }, [isLoaded]);
+
+  /**
+   * Play chord melodically (notes in sequence)
+   */
+  const playMelodicChord = useCallback(async (rootNote, chordType, noteDuration = '2n', gap = 0.1) => {
+    if (!instrumentRef.current || !isLoaded) {
+      console.warn('Instrument not loaded');
+      return;
+    }
+    
+    if (Tone.context.state !== 'running') {
+      await Tone.start();
+    }
+    
+    const semitonesList = CHORDS[chordType];
+    if (!semitonesList) {
+      console.error('Unknown chord type:', chordType);
+      return;
+    }
+    
+    // Calculate all notes in the chord
+    const chordNotes = semitonesList.map(semitones => {
+      if (semitones === 0) {
+        return rootNote;
+      }
+      const octaveOffset = Math.floor(semitones / 12);
+      const noteSemitones = semitones % 12;
+      const targetNote = Tone.Frequency(rootNote).transpose(noteSemitones).toNote();
+      
+      if (octaveOffset > 0) {
+        const baseOctave = parseInt(rootNote.match(/\d+/)?.[0] || '4');
+        const noteName = targetNote.replace(/\d+/, '');
+        return `${noteName}${baseOctave + octaveOffset}`;
+      }
+      
+      return targetNote;
+    });
+    
+    // Play notes sequentially
+    const durationSeconds = Tone.Time(noteDuration).toSeconds();
+    const gapMs = gap * 1000;
+    
+    chordNotes.forEach((note, index) => {
+      setTimeout(() => {
+        if (instrumentRef.current) {
+          instrumentRef.current.triggerAttackRelease(note, noteDuration);
+        }
+      }, index * (durationSeconds * 1000 + gapMs));
+    });
+    
+    return { rootNote, chordType, chordNotes };
+  }, [isLoaded]);
+
+  /**
    * Stop all playing sounds
    */
   const stopAll = useCallback(() => {
@@ -284,6 +396,8 @@ export const useInstrument = (instrumentType = 'piano') => {
     playNote,
     playHarmonicInterval,
     playMelodicInterval,
+    playChord,
+    playMelodicChord,
     stopAll,
     changeInstrument,
     availableInstruments: Object.keys(INSTRUMENT_CONFIGS),
