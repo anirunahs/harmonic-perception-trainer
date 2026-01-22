@@ -8,7 +8,7 @@ import { useTestSession } from "./useTestSession";
 import { useTestProgress } from "./useTestProgress";
 import { useTestTimer } from "./useTestTimer";
 import { useTestStats } from "./useTestStats";
-import { useUserProfile } from "./useUserProfile";
+import { useUserProfileContext } from "../contexts/UserProfileContext";
 import api from "../api";
 
 export const useTesting = () => {
@@ -67,7 +67,7 @@ export const useTesting = () => {
   } = useTestStats();
 
   // User profile for XP tracking
-  const { refreshProfile } = useUserProfile();
+  const { refreshProfile } = useUserProfileContext();
 
   // Initialize question timer when question changes
   useEffect(() => {
@@ -115,8 +115,11 @@ export const useTesting = () => {
               final_streak: streakCount + (result.is_correct ? 1 : 0),
             });
             
-            // Refresh user profile to update XP and level
-            refreshProfile();
+            // Refresh user profile to update XP and level immediately
+            // Small delay to ensure backend has processed XP
+            setTimeout(async () => {
+              await refreshProfile();
+            }, 300);
           } catch (err) {
             console.error('Error fetching final session data:', err);
             // Fallback to current session data
@@ -128,7 +131,9 @@ export const useTesting = () => {
             });
             
             // Still refresh profile even on error
-            refreshProfile();
+            setTimeout(async () => {
+              await refreshProfile();
+            }, 300);
           }
         } else {
           completeSession({

@@ -1,11 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
 import { Music, LogOut, Home, Mic, Ear, BookOpenCheck } from "lucide-react";
 import ExperiencePanel from "./ExperiencePanel";
-import { useUserProfile } from "../hooks/useUserProfile";
+import { useUserProfileContext } from "../contexts/UserProfileContext";
 
 function Header() {
   const location = useLocation();
-  const { profile, isLoading } = useUserProfile();
+  const { profile, isLoading } = useUserProfileContext();
 
   const isActive = (path) => location.pathname === path;
 
