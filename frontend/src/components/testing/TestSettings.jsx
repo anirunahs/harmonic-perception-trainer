@@ -144,6 +144,30 @@ const TestSettings = ({
             </div>
 
             <div className="setting-group">
+              <label className="setting-label">Інструмент</label>
+              <select
+                className="setting-select"
+                value={settings.instrument || 'piano'}
+                onChange={(e) => onUpdateSettings({ instrument: e.target.value })}
+              >
+                <option value="piano">Фортепіано</option>
+                <option value="guitar">Гітара</option>
+              </select>
+            </div>
+
+            <div className="setting-group">
+              <label className="setting-checkbox">
+                <input
+                  type="checkbox"
+                  checked={settings.enableHints || false}
+                  onChange={(e) => onUpdateSettings({ enableHints: e.target.checked })}
+                />
+                <span className="checkmark"></span>
+                Дозволити підказки під час тесту
+              </label>
+            </div>
+
+            <div className="setting-group">
               <label className="setting-checkbox">
                 <input
                   type="checkbox"

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Play, Square, Volume2, VolumeX, CheckCircle, XCircle, 
          RotateCcw, Headphones, Music, Eye, EyeOff, HelpCircle, 
          Lightbulb, Repeat, SkipForward } from "lucide-react";
-import { useAudioPlayer } from "../../hooks/useAudioPlayer";
+import useInstrument from "../../hooks/useInstrument";
 import LoadingIndicator from "../LoadingIndicator";
 
 const IntervalRecognitionTest = ({ 
@@ -13,7 +13,8 @@ const IntervalRecognitionTest = ({
   isReviewMode = false,
   showFeedback = true,
   autoNext = false,
-  allowRetry = true
+  allowRetry = true,
+  intervals = [] // Selected intervals from test settings
 }) => {
   const [selectedAnswer, setSelectedAnswer] = useState("");
   const [hasAnswered, setHasAnswered] = useState(false);
@@ -21,18 +22,12 @@ const IntervalRecognitionTest = ({
   const [playCount, setPlayCount] = useState(0);
   const [showNoteNames, setShowNoteNames] = useState(false);
   const [feedbackShown, setFeedbackShown] = useState(false);
-  const [confidence, setConfidence] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
   
-  const {
-    currentPlaying,
-    loadingAudio,
-    audioError,
-    setAudioError,
-    playAudio,
-    stopAudio,
-    clearAllAudio
-  } = useAudioPlayer();
+  // Use instrument hook for better sound quality
+  const instrument = useInstrument('piano'); // Can be made configurable
+  const [currentPlaying, setCurrentPlaying] = useState(null);
+  const [audioError, setAudioError] = useState(null);
 
   const feedbackTimeoutRef = useRef(null);
 
@@ -137,34 +132,57 @@ const IntervalRecognitionTest = ({
 
   const [answerOptions, setAnswerOptions] = useState([]);
 
+  // Get difficulty levels of selected intervals
+  const getSelectedDifficulties = () => {
+    if (!intervals || intervals.length === 0) {
+      // If no intervals selected, allow all difficulties
+      return ['easy', 'medium', 'hard'];
+    }
+    
+    const selectedIntervalOptions = intervalOptions.filter(opt => intervals.includes(opt.id));
+    const difficulties = [...new Set(selectedIntervalOptions.map(opt => opt.difficulty))];
+    return difficulties;
+  };
+
   useEffect(() => {
     if (question && question.interval_type) {
       const correctInterval = intervalOptions.find(opt => opt.id === question.interval_type);
-      const otherIntervals = intervalOptions.filter(opt => opt.id !== question.interval_type);
+      if (!correctInterval) return;
       
+      // Get allowed difficulties based on selected intervals
+      const allowedDifficulties = getSelectedDifficulties();
+      
+      // Filter other intervals to only include those with allowed difficulties
+      const otherIntervals = intervalOptions.filter(opt => 
+        opt.id !== question.interval_type && 
+        allowedDifficulties.includes(opt.difficulty)
+      );
+      
+      // Always use intervals with same difficulty categories as selected
+      // If not enough intervals, still use only allowed difficulties (don't fallback to all)
       const numberOfOptions = 4;
-      const shuffledOthers = otherIntervals.sort(() => Math.random() - 0.5);
+      const shuffledOthers = [...otherIntervals].sort(() => Math.random() - 0.5);
       const selectedOthers = shuffledOthers.slice(0, numberOfOptions - 1);
       
       const options = [correctInterval, ...selectedOthers].sort(() => Math.random() - 0.5);
       setAnswerOptions(options);
     }
-  }, [question]);
+  }, [question, intervals]);
 
   useEffect(() => {
-    clearAllAudio();
+    instrument.stopAll();
+    setCurrentPlaying(null);
     setSelectedAnswer("");
     setHasAnswered(false);
     setPlayCount(0);
     setFeedbackShown(false);
-    setConfidence(null);
     setRetryCount(0);
     
     if (feedbackTimeoutRef.current) {
       clearTimeout(feedbackTimeoutRef.current);
       feedbackTimeoutRef.current = null;
     }
-  }, [question, clearAllAudio]);
+  }, [question, instrument]);
 
   useEffect(() => {
     if (hasAnswered && showFeedback && !isReviewMode) {
@@ -178,28 +196,60 @@ const IntervalRecognitionTest = ({
   }, [hasAnswered, showFeedback, isReviewMode, autoNext]);
 
   const handlePlayAudio = async (audioType) => {
-    if (!question) return;
-    
-    const fakeIntervals = [{
-      id: question.id,
-      harmonic_url: question.harmonic_audio_url,
-      melodic_url: question.melodic_audio_url
-    }];
+    if (!question || !instrument.isLoaded) {
+      if (!instrument.isLoaded) {
+        setAudioError('Інструмент ще завантажується. Зачекайте...');
+      }
+      return;
+    }
     
     try {
-      await playAudio(question.id, audioType, fakeIntervals);
+      setAudioError(null);
+      
+      // Extract base note from question (e.g., "C4" -> "C4")
+      const baseNote = question.base_note || 'C4';
+      const intervalType = question.interval_type;
+      
+      const playId = `${question.id}_${audioType}`;
+      
+      // Stop current playback if same
+      if (currentPlaying === playId) {
+        instrument.stopAll();
+        setCurrentPlaying(null);
+        return;
+      }
+      
+      setCurrentPlaying(playId);
+      
+      if (audioType === 'harmonic') {
+        await instrument.playHarmonicInterval(baseNote, intervalType, '2n');
+      } else if (audioType === 'melodic') {
+        await instrument.playMelodicInterval(baseNote, intervalType, '2n');
+      }
+      
       setPlayCount(prev => prev + 1);
+      
+      // Clear playing state after duration
+      setTimeout(() => {
+        setCurrentPlaying(null);
+      }, 2000);
+      
     } catch (error) {
       console.error('Помилка відтворення аудіо:', error);
       setAudioError('Не вдалося відтворити аудіо. Спробуйте ще раз.');
+      setCurrentPlaying(null);
     }
   };
+  
+  const handleStopAudio = () => {
+    instrument.stopAll();
+    setCurrentPlaying(null);
+  };
 
-  const handleAnswerSelect = (answerId, confidenceLevel = null) => {
+  const handleAnswerSelect = (answerId) => {
     if (hasAnswered && !isReviewMode && !allowRetry) return;
     
     setSelectedAnswer(answerId);
-    setConfidence(confidenceLevel);
     
     if (!isReviewMode) {
       setHasAnswered(true);
@@ -213,7 +263,6 @@ const IntervalRecognitionTest = ({
     setSelectedAnswer("");
     setHasAnswered(false);
     setFeedbackShown(false);
-    setConfidence(null);
     setRetryCount(prev => prev + 1);
   };
 
@@ -261,35 +310,6 @@ const IntervalRecognitionTest = ({
     }
   };
 
-  const getConfidenceButtons = (optionId) => {
-    if (hasAnswered || isReviewMode) return null;
-    
-    return (
-      <div className="confidence-buttons">
-        <button
-          className="confidence-btn confidence-btn--low"
-          onClick={() => handleAnswerSelect(optionId, 'low')}
-          title="Не впевнений"
-        >
-          ?
-        </button>
-        <button
-          className="confidence-btn confidence-btn--medium"
-          onClick={() => handleAnswerSelect(optionId, 'medium')}
-          title="Може бути"
-        >
-          ~
-        </button>
-        <button
-          className="confidence-btn confidence-btn--high"
-          onClick={() => handleAnswerSelect(optionId, 'high')}
-          title="Впевнений"
-        >
-          !
-        </button>
-      </div>
-    );
-  };
 
   if (!question) {
     return (
@@ -381,9 +401,9 @@ const IntervalRecognitionTest = ({
               currentPlaying === `${question.id}_harmonic` ? 'audio-btn--playing' : ''
             }`}
             onClick={() => handlePlayAudio('harmonic')}
-            disabled={loadingAudio === `${question.id}_harmonic`}
+            disabled={!instrument.isLoaded || instrument.isLoading}
           >
-            {loadingAudio === `${question.id}_harmonic` ? (
+            {instrument.isLoading ? (
               <LoadingIndicator size="small" />
             ) : currentPlaying === `${question.id}_harmonic` ? (
               <Square />
@@ -401,9 +421,9 @@ const IntervalRecognitionTest = ({
               currentPlaying === `${question.id}_melodic` ? 'audio-btn--playing' : ''
             }`}
             onClick={() => handlePlayAudio('melodic')}
-            disabled={loadingAudio === `${question.id}_melodic`}
+            disabled={!instrument.isLoaded || instrument.isLoading}
           >
-            {loadingAudio === `${question.id}_melodic` ? (
+            {instrument.isLoading ? (
               <LoadingIndicator size="small" />
             ) : currentPlaying === `${question.id}_melodic` ? (
               <Square />
@@ -430,7 +450,7 @@ const IntervalRecognitionTest = ({
         {currentPlaying && (
           <button
             className="audio-btn audio-btn--stop"
-            onClick={stopAudio}
+            onClick={handleStopAudio}
           >
             <Square />
             <span>Зупинити</span>
@@ -477,12 +497,6 @@ const IntervalRecognitionTest = ({
                 {getOptionIcon(option)}
               </button>
               
-              {!hasAnswered && !isReviewMode && (
-                <div className="confidence-selector">
-                  <span className="confidence-label">Впевненість:</span>
-                  {getConfidenceButtons(option.id)}
-                </div>
-              )}
             </div>
           ))}
         </div>
@@ -498,14 +512,6 @@ const IntervalRecognitionTest = ({
                   <div className="feedback-text">
                     <h4>Правильно!</h4>
                     <p>Це дійсно {intervalOptions.find(opt => opt.id === question.interval_type)?.name}</p>
-                    {confidence && (
-                      <p className="confidence-feedback">
-                        Рівень впевненості: {
-                          confidence === 'high' ? 'Високий' :
-                          confidence === 'medium' ? 'Середній' : 'Низький'
-                        }
-                      </p>
-                    )}
                   </div>
                 </>
               ) : (

@@ -14,6 +14,8 @@
 
 @use "./testing/testing";
 @use "./testing/interval-test";
+@use "./testing/test-session";
+@use "./experience-panel";
 
 // Для тексту
 .text-center { text-align: center; }
