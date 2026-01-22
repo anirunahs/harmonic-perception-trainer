@@ -156,6 +156,55 @@
   gap: $space-3;
 }
 
+.music-type-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-3;
+}
+
+.music-type-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-4 $space-6;
+  border: 2px solid $border-color;
+  border-radius: $radius-lg;
+  background: $white;
+  cursor: pointer;
+  transition: all $transition-fast;
+  min-width: 120px;
+
+  &:hover {
+    border-color: $primary-color;
+    background: rgba($primary-color, 0.05);
+    transform: translateY(-2px);
+    box-shadow: $shadow;
+  }
+
+  &--active {
+    border-color: $primary-color;
+    background: linear-gradient(135deg, rgba($primary-color, 0.1), rgba($primary-color, 0.05));
+    box-shadow: $shadow-md;
+
+    .music-type-btn__name {
+      color: $primary-color;
+      font-weight: 600;
+    }
+  }
+
+  &__icon {
+    color: $primary-color;
+  }
+
+  &__name {
+    font-size: $font-size-sm;
+    font-weight: 500;
+    color: $text-secondary;
+    transition: all $transition-fast;
+  }
+}
+
 .instrument-btn {
   display: flex;
   flex-direction: column;
@@ -207,6 +256,63 @@
 
   @media (max-width: $breakpoint-md) {
     grid-template-columns: 1fr;
+  }
+}
+
+.chord-selector {
+  &__actions {
+    display: flex;
+    gap: $space-2;
+    margin-bottom: $space-4;
+  }
+
+  &__list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: $space-3;
+
+    @media (max-width: $breakpoint-md) {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+.chord-item {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  padding: $space-4;
+  border: 1px solid $border-color;
+  border-radius: $radius-md;
+  background: $white;
+  cursor: pointer;
+  transition: all $transition-fast;
+  text-align: left;
+  width: 100%;
+
+  &:hover {
+    border-color: $primary-color;
+    background: rgba($primary-color, 0.02);
+  }
+
+  &--selected {
+    border-color: $primary-color;
+    background: rgba($primary-color, 0.05);
+
+    svg {
+      color: $primary-color;
+    }
+  }
+
+  svg {
+    color: $text-secondary;
+    flex-shrink: 0;
+  }
+
+  span {
+    font-size: $font-size-sm;
+    font-weight: 500;
+    color: $text-primary;
   }
 }
 
@@ -340,6 +446,11 @@
     transform: translateY(-2px);
   }
 
+  &--playing {
+    border-color: $primary-color;
+    box-shadow: 0 0 0 3px rgba($primary-color, 0.1);
+  }
+
   &__header {
     margin-bottom: $space-4;
     text-align: center;
@@ -362,16 +473,70 @@
     display: inline-block;
   }
 
+  &__body {
+    margin-bottom: $space-4;
+  }
+
+  &__info {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+  }
+
   &__controls {
     display: flex;
     flex-direction: column;
     gap: $space-3;
   }
 
+  &__actions {
+    display: flex;
+    justify-content: center;
+  }
+
   &__status {
     margin-top: $space-4;
     padding-top: $space-3;
     border-top: 1px solid $border-color-light;
+  }
+}
+
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: $space-2 0;
+  border-bottom: 1px solid $border-color-light;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.info-label {
+  font-size: $font-size-sm;
+  color: $text-secondary;
+  font-weight: 500;
+}
+
+.info-value {
+  font-size: $font-size-sm;
+  color: $text-primary;
+  font-weight: 600;
+}
+
+.note-badge {
+  display: inline-block;
+  padding: $space-1 $space-2;
+  border-radius: $radius;
+  font-size: $font-size-xs;
+  font-weight: 600;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+
+  &--root {
+    background: rgba($primary-color, 0.1);
+    color: $primary-color;
   }
 }
 

@@ -1,9 +1,10 @@
 # Audio generation module
-# Implements Factory Method pattern for instrument-based sound generation
+# Implements Factory Method and Abstract Factory patterns for instrument-based sound generation
 
 from .constants import (
     NOTE_FREQUENCIES, 
-    INTERVALS_SEMITONES, 
+    INTERVALS_SEMITONES,
+    CHORDS_SEMITONES,
     DEFAULT_SAMPLE_RATE,
     ADSREnvelope,
     InstrumentEnvelopes,
@@ -13,6 +14,21 @@ from .constants import (
 )
 from .generators import AudioGenerator, PianoGenerator, GuitarGenerator, SynthGenerator
 from .factory import InstrumentFactory, get_factory
+from .music_elements import (
+    IntervalGenerator,
+    ChordGenerator,
+    PianoIntervalGenerator,
+    PianoChordGenerator,
+    GuitarIntervalGenerator,
+    GuitarChordGenerator,
+)
+from .abstract_factory import (
+    MusicElementFactory,
+    PianoMusicElementFactory,
+    GuitarMusicElementFactory,
+    MusicElementFactoryRegistry,
+)
+from .audio_manager import AudioManager, get_audio_manager
 from .utils import (
     save_audio,
     combine_tones_harmonic,
@@ -24,7 +40,8 @@ from .utils import (
 __all__ = [
     # Constants
     'NOTE_FREQUENCIES',
-    'INTERVALS_SEMITONES', 
+    'INTERVALS_SEMITONES',
+    'CHORDS_SEMITONES',
     'DEFAULT_SAMPLE_RATE',
     'ADSREnvelope',
     'InstrumentEnvelopes',
@@ -37,9 +54,23 @@ __all__ = [
     'PianoGenerator',
     'GuitarGenerator',
     'SynthGenerator',
-    # Factory
+    # Factory Method
     'InstrumentFactory',
     'get_factory',
+    # Abstract Factory - Music Elements
+    'IntervalGenerator',
+    'ChordGenerator',
+    'PianoIntervalGenerator',
+    'PianoChordGenerator',
+    'GuitarIntervalGenerator',
+    'GuitarChordGenerator',
+    'MusicElementFactory',
+    'PianoMusicElementFactory',
+    'GuitarMusicElementFactory',
+    'MusicElementFactoryRegistry',
+    # Singleton - Audio Manager
+    'AudioManager',
+    'get_audio_manager',
     # Utilities
     'save_audio',
     'combine_tones_harmonic',
