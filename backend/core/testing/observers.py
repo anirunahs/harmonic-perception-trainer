@@ -167,18 +167,19 @@ class AchievementObserver(ProgressObserver):
     def _check_level_achievements(self, event: ProgressEvent):
         """Check achievements for level milestones."""
         user = event.user
-        new_level = event.data.get('new_level', 1)
         
-        # Get user profile to check current level
-        try:
-            profile = UserProfile.objects.get(user=user)
-            current_level = profile.level
-        except UserProfile.DoesNotExist:
-            return
+        # Get new level from event data or profile
+        new_level = event.data.get('new_level')
+        if not new_level:
+            try:
+                profile = UserProfile.objects.get(user=user)
+                new_level = profile.level
+            except UserProfile.DoesNotExist:
+                return
         
         achievements = Achievement.objects.filter(
             achievement_type='level',
-            requirement_value=current_level
+            requirement_value=new_level
         )
         
         for achievement in achievements:

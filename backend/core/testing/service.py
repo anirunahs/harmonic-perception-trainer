@@ -142,12 +142,7 @@ class TestSessionService:
         session.is_completed = True
         session.save()
         
-        # Notify observers about completion
-        subject = ProgressSubject()
-        subject.attach(XPObserver())
-        subject.attach(AchievementObserver())
-        subject.attach(AnalyticsObserver())
-        
+        # Create completion event
         completion_event = ProgressEvent(
             event_type='test_completed',
             session=session,
@@ -160,6 +155,38 @@ class TestSessionService:
             },
             timestamp=datetime.now()
         )
+        
+        # Process XP first to check for level up
+        xp_observer = XPObserver()
+        xp_observer.update(completion_event)
+        
+        # Check if level up occurred
+        level_up_occurred = completion_event.data.get('level_up', False)
+        new_level = completion_event.data.get('new_level')
+        
+        # Notify other observers about completion
+        subject = ProgressSubject()
+        subject.attach(AchievementObserver())
+        subject.attach(AnalyticsObserver())
         subject.notify(completion_event)
+        
+        # If level up occurred, notify observers with level_up event
+        if level_up_occurred and new_level:
+            level_up_event = ProgressEvent(
+                event_type='level_up',
+                session=session,
+                user=session.user,
+                data={
+                    'new_level': new_level,
+                    'previous_level': new_level - 1,
+                },
+                timestamp=datetime.now()
+            )
+            # Notify all observers about level up
+            level_up_subject = ProgressSubject()
+            level_up_subject.attach(XPObserver())
+            level_up_subject.attach(AchievementObserver())
+            level_up_subject.attach(AnalyticsObserver())
+            level_up_subject.notify(level_up_event)
         
         logger.info(f"Completed test session {session.id} for user {session.user.id}")
