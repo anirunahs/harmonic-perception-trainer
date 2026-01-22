@@ -4,10 +4,7 @@ Builder Pattern for TestSession creation.
 Pattern: Builder (Creational)
 Purpose: Construct complex TestSession objects step by step with validation.
 
-Clean implementation based on requirements:
-- Interval recognition tests only
-- Simple, clear logic
-- Proper interval selection and question generation
+Uses Abstract Factory pattern for audio generation of intervals.
 """
 
 import random
@@ -17,9 +14,10 @@ from django.contrib.auth.models import User
 
 from api.models import TestSession, TestQuestion
 from core.audio import (
-    InstrumentFactory,
+    get_audio_manager,
     INTERVALS_SEMITONES,
     get_target_note,
+    MusicElementFactoryRegistry,
 )
 
 logger = logging.getLogger(__name__)
@@ -58,7 +56,7 @@ class TestSessionBuilder:
         """Initialize builder with user."""
         self._user = user
         self._reset()
-        self._audio_factory = InstrumentFactory()
+        self._audio_manager = get_audio_manager()
     
     def _reset(self):
         """Reset builder state to defaults."""
@@ -125,7 +123,7 @@ class TestSessionBuilder:
         Returns:
             Self for method chaining
         """
-        available = self._audio_factory.get_available_instruments()
+        available = MusicElementFactoryRegistry.get_available_instruments()
         if instrument not in available:
             raise ValueError(f"Unsupported instrument: {instrument}. Available: {available}")
         self._instrument = instrument
@@ -181,7 +179,7 @@ class TestSessionBuilder:
             # Create questions
             self._create_interval_questions(session)
             
-            # Generate audio files
+            # Generate audio files using Abstract Factory
             self._generate_test_audio(session)
             
             logger.info(f"TestSession {session.id} created for user {self._user.id}")
@@ -249,50 +247,39 @@ class TestSessionBuilder:
     
     def _generate_test_audio(self, session: TestSession):
         """
-        Generate audio files for test questions.
+        Generate audio files for test questions using Abstract Factory.
         
         Args:
             session: TestSession instance
         """
-        from django.conf import settings
         import os
         import shutil
-        from core.audio import (
-            get_note_frequency,
-            combine_tones_harmonic,
-            combine_tones_melodic,
-            save_audio,
-        )
+        from core.audio import save_audio
         
-        # Setup audio directory
-        audio_dir = os.path.join(settings.MEDIA_ROOT, 'testing_audio')
-        os.makedirs(audio_dir, exist_ok=True)
-        
+        # Setup audio directory using AudioManager
+        audio_dir = self._audio_manager.ensure_audio_directory('testing_audio')
         user_audio_dir = os.path.join(audio_dir, str(self._user.id))
         if os.path.exists(user_audio_dir):
             shutil.rmtree(user_audio_dir)
         os.makedirs(user_audio_dir, exist_ok=True)
         
-        # Create audio generator
-        generator = self._audio_factory.create_generator(self._instrument)
+        # Get music element factory using Abstract Factory pattern
+        music_factory = self._audio_manager.get_music_element_factory(self._instrument)
+        interval_generator = music_factory.create_interval_generator()
         
         # Generate audio for each question
         for question in session.questions.all():
             # Extract note names (without octave)
             base_note_name = question.base_note[:-1] if question.base_note[-1].isdigit() else question.base_note
-            target_note_name = question.target_note[:-1] if question.target_note[-1].isdigit() else question.target_note
+            octave = int(question.base_note[-1]) if question.base_note[-1].isdigit() else 4
             
-            # Get frequencies
-            base_freq = get_note_frequency(base_note_name)
-            target_freq = get_note_frequency(target_note_name)
-            
-            # Generate tones
-            base_tone = generator.generate_tone(base_freq, duration=2.0)
-            target_tone = generator.generate_tone(target_freq, duration=2.0)
-            
-            # Combine tones
-            harmonic_audio = combine_tones_harmonic(base_tone, target_tone)
-            melodic_audio = combine_tones_melodic(base_tone, target_tone)
+            # Generate interval audio using Abstract Factory
+            harmonic_audio = interval_generator.generate_harmonic_interval(
+                base_note_name, question.interval_type, octave, duration=2.0
+            )
+            melodic_audio = interval_generator.generate_melodic_interval(
+                base_note_name, question.interval_type, octave, duration=2.0, gap=0.1
+            )
             
             # Save audio files
             harmonic_filename = f"q{question.question_number}_harmonic.wav"

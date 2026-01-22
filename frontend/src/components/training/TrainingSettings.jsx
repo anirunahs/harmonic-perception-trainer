@@ -3,9 +3,13 @@ import { Settings, Volume2, Trash2 } from "lucide-react";
 import LoadingIndicator from "../LoadingIndicator";
 import NoteSelector from "./NoteSelector";
 import IntervalSelector from "./IntervalSelector";
+import ChordSelector from "./ChordSelector";
 import InstrumentSelector from "./InstrumentSelector";
+import MusicElementTypeSelector from "./MusicElementTypeSelector";
 
 const TrainingSettings = ({
+  musicElementType,
+  onMusicElementTypeChange,
   selectedNote,
   setSelectedNote,
   selectedInstrument,
@@ -14,10 +18,15 @@ const TrainingSettings = ({
   onIntervalToggle,
   onSelectAllIntervals,
   onClearIntervals,
-  onGenerateIntervals,
+  selectedChords,
+  onChordToggle,
+  onSelectAllChords,
+  onClearChords,
+  onGenerate,
   onClearGenerated,
   isGenerating,
-  hasGeneratedIntervals
+  hasGenerated,
+  canGenerate
 }) => {
   return (
     <div className="training-settings">
@@ -29,6 +38,11 @@ const TrainingSettings = ({
       </div>
 
       <div className="training-settings__body">
+        <MusicElementTypeSelector
+          selectedType={musicElementType}
+          onTypeSelect={onMusicElementTypeChange}
+        />
+
         <NoteSelector
           selectedNote={selectedNote}
           onNoteSelect={setSelectedNote}
@@ -39,19 +53,28 @@ const TrainingSettings = ({
           onInstrumentSelect={setSelectedInstrument}
         />
 
-        <IntervalSelector
-          selectedIntervals={selectedIntervals}
-          onIntervalToggle={onIntervalToggle}
-          onSelectAll={onSelectAllIntervals}
-          onClear={onClearIntervals}
-        />
+        {musicElementType === "intervals" ? (
+          <IntervalSelector
+            selectedIntervals={selectedIntervals}
+            onIntervalToggle={onIntervalToggle}
+            onSelectAll={onSelectAllIntervals}
+            onClear={onClearIntervals}
+          />
+        ) : (
+          <ChordSelector
+            selectedChords={selectedChords}
+            onChordToggle={onChordToggle}
+            onSelectAll={onSelectAllChords}
+            onClear={onClearChords}
+          />
+        )}
 
         <div className="setting-group">
           <div className="setting-actions">
             <button
               className="btn btn--primary"
-              onClick={onGenerateIntervals}
-              disabled={isGenerating || selectedIntervals.length === 0}
+              onClick={onGenerate}
+              disabled={isGenerating || !canGenerate}
             >
               {isGenerating ? (
                 <>
@@ -61,12 +84,16 @@ const TrainingSettings = ({
               ) : (
                 <>
                   <Volume2 />
-                  <span>Згенерувати інтервали</span>
+                  <span>
+                    {musicElementType === "intervals" 
+                      ? "Згенерувати інтервали" 
+                      : "Згенерувати акорди"}
+                  </span>
                 </>
               )}
             </button>
 
-            {hasGeneratedIntervals && (
+            {hasGenerated && (
               <button
                 className="btn btn--ghost"
                 onClick={onClearGenerated}
