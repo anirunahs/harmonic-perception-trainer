@@ -53,6 +53,20 @@ INTERVALS_SEMITONES: Dict[str, int] = {
     'perfect_octave': 12,
 }
 
+# Chord definitions: name -> list of semitones from root
+# Each chord is defined by intervals from the root note
+CHORDS_SEMITONES: Dict[str, List[int]] = {
+    'major': [0, 4, 7],           # Root, Major Third, Perfect Fifth (C-E-G)
+    'minor': [0, 3, 7],           # Root, Minor Third, Perfect Fifth (C-Eb-G)
+    'diminished': [0, 3, 6],      # Root, Minor Third, Diminished Fifth (C-Eb-Gb)
+    'augmented': [0, 4, 8],       # Root, Major Third, Augmented Fifth (C-E-G#)
+    'major_seventh': [0, 4, 7, 11],  # Major chord + Major Seventh (C-E-G-B)
+    'minor_seventh': [0, 3, 7, 10], # Minor chord + Minor Seventh (C-Eb-G-Bb)
+    'dominant_seventh': [0, 4, 7, 10], # Major chord + Minor Seventh (C-E-G-Bb)
+    'suspended_fourth': [0, 5, 7], # Root, Perfect Fourth, Perfect Fifth (C-F-G)
+    'suspended_second': [0, 2, 7],  # Root, Major Second, Perfect Fifth (C-D-G)
+}
+
 
 @dataclass
 class ADSREnvelope:
