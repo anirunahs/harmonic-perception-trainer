@@ -1,16 +1,22 @@
 import React, { useState, useEffect } from "react";
+import * as Tone from "tone";
 import Header from "../components/Header";
 import TrainingSettings from "../components/training/TrainingSettings";
 import GeneratedIntervals from "../components/training/GeneratedIntervals";
+import GeneratedChords from "../components/training/GeneratedChords";
 import ErrorMessage from "../components/training/ErrorMessage";
 import PianoKeyboard from "../components/training/PianoKeyboard";
 import { useInstrument } from "../hooks/useInstrument";
+import { getChordNotes } from "../utils/chordUtils";
 
 const Training = () => {
+  const [musicElementType, setMusicElementType] = useState("intervals"); // "intervals" or "chords"
   const [selectedIntervals, setSelectedIntervals] = useState([]);
+  const [selectedChords, setSelectedChords] = useState([]);
   const [selectedNote, setSelectedNote] = useState("C");
   const [selectedInstrument, setSelectedInstrument] = useState("piano");
   const [generatedIntervals, setGeneratedIntervals] = useState([]);
+  const [generatedChords, setGeneratedChords] = useState([]);
   const [currentPlaying, setCurrentPlaying] = useState(null);
   const [audioError, setAudioError] = useState(null);
 
@@ -22,6 +28,8 @@ const Training = () => {
     playNote,
     playHarmonicInterval,
     playMelodicInterval,
+    playChord,
+    playMelodicChord,
     stopAll,
     changeInstrument,
   } = useInstrument(selectedInstrument);
@@ -53,6 +61,18 @@ const Training = () => {
     { name: "Чиста октава", semitones: 12, id: "perfect_octave" }
   ];
 
+  const chords = [
+    { name: "Мажорний", id: "major" },
+    { name: "Мінорний", id: "minor" },
+    { name: "Зменшений", id: "diminished" },
+    { name: "Збільшений", id: "augmented" },
+    { name: "Мажорний септакорд", id: "major_seventh" },
+    { name: "Мінорний септакорд", id: "minor_seventh" },
+    { name: "Домінантний септакорд", id: "dominant_seventh" },
+    { name: "Квартовий затриманий", id: "suspended_fourth" },
+    { name: "Секундовий затриманий", id: "suspended_second" },
+  ];
+
   const handleIntervalToggle = (intervalId) => {
     setSelectedIntervals(prev => 
       prev.includes(intervalId)
@@ -67,6 +87,22 @@ const Training = () => {
 
   const handleClearIntervals = () => {
     setSelectedIntervals([]);
+  };
+
+  const handleChordToggle = (chordId) => {
+    setSelectedChords(prev => 
+      prev.includes(chordId)
+        ? prev.filter(id => id !== chordId)
+        : [...prev, chordId]
+    );
+  };
+
+  const handleSelectAllChords = () => {
+    setSelectedChords(chords.map(chord => chord.id));
+  };
+
+  const handleClearChords = () => {
+    setSelectedChords([]);
   };
 
   // Generate intervals list (no API call - sound is generated client-side)
@@ -99,7 +135,39 @@ const Training = () => {
     });
 
     setGeneratedIntervals(intervalsData);
+    setGeneratedChords([]);
     console.log('Generated intervals:', intervalsData, 'Instrument:', selectedInstrument);
+  };
+
+  // Generate chords list
+  const generateChords = () => {
+    if (selectedChords.length === 0) {
+      alert("Будь ласка, оберіть хоча б один акорд");
+      return;
+    }
+
+    if (!isLoaded) {
+      setAudioError("Інструмент ще завантажується. Зачекайте...");
+      return;
+    }
+
+    setAudioError(null);
+    
+    // Create chord objects for display
+    const chordsData = selectedChords.map((chordId, index) => {
+      const rootNoteWithOctave = `${selectedNote}4`;
+      
+      return {
+        id: `${chordId}-${index}`,
+        chord_type: chordId,
+        root_note: selectedNote,
+        rootNoteWithOctave: rootNoteWithOctave,
+      };
+    });
+
+    setGeneratedChords(chordsData);
+    setGeneratedIntervals([]);
+    console.log('Generated chords:', chordsData, 'Instrument:', selectedInstrument);
   };
 
   // Calculate target note from base note and semitones
@@ -113,11 +181,12 @@ const Training = () => {
   const clearGenerated = () => {
     stopAll();
     setGeneratedIntervals([]);
+    setGeneratedChords([]);
     setCurrentPlaying(null);
   };
 
   // Play interval using Tone.js (real samples)
-  const handlePlayAudio = async (intervalId, playType) => {
+  const handlePlayInterval = async (intervalId, playType) => {
     const interval = generatedIntervals.find(i => i.id === intervalId);
     if (!interval) return;
 
@@ -131,25 +200,89 @@ const Training = () => {
       
       if (playType === 'harmonic') {
         await playHarmonicInterval(baseNote, interval.interval_type, noteDuration);
+        
+        // Calculate actual duration: note duration + release time + buffer
+        const noteDurationSeconds = Tone.Time(noteDuration).toSeconds();
+        // Use release time from instrument config (piano: 1.5s, guitar: 1.2s)
+        const releaseTime = selectedInstrument === 'piano' ? 1.5 : 1.2;
+        const buffer = 0.5; // Extra buffer to ensure sound finishes completely
+        const totalDuration = (noteDurationSeconds + releaseTime + buffer) * 1000;
+        
+        setTimeout(() => {
+          setCurrentPlaying(null);
+        }, totalDuration);
       } else {
         await playMelodicInterval(baseNote, interval.interval_type, noteDuration);
+        
+        // Melodic: two notes sequentially, each with release
+        const noteDurationSeconds = Tone.Time(noteDuration).toSeconds();
+        const releaseTime = selectedInstrument === 'piano' ? 1.5 : 1.2;
+        const buffer = 0.5;
+        // First note duration + gap + second note duration + release + buffer
+        const totalDuration = (noteDurationSeconds * 2 + releaseTime + buffer) * 1000;
+        
+        setTimeout(() => {
+          setCurrentPlaying(null);
+        }, totalDuration);
       }
-      
-      // Calculate actual duration based on note length + release time
-      // Half note at 120 BPM = 1 second, plus ~1.5s release for piano
-      const baseDuration = 1000; // 1 second for half note
-      const releaseTime = 1500; // 1.5 seconds for release
-      const totalDuration = playType === 'harmonic' 
-        ? baseDuration + releaseTime 
-        : (baseDuration * 2) + releaseTime; // melodic plays two notes
-      
-      // Clear playing state after sound finishes
-      setTimeout(() => {
-        setCurrentPlaying(null);
-      }, totalDuration);
       
     } catch (error) {
       console.error('Error playing interval:', error);
+      setAudioError('Помилка відтворення звуку');
+      setCurrentPlaying(null);
+    }
+  };
+
+  // Play chord using Tone.js
+  const handlePlayChord = async (chordId, playType) => {
+    const chord = generatedChords.find(c => c.id === chordId);
+    if (!chord) return;
+
+    // Stop any currently playing sound
+    stopAll();
+    setCurrentPlaying({ id: chordId, type: playType });
+    
+    try {
+      const rootNote = `${chord.root_note}4`; // Use octave 4
+      const noteDuration = '2n'; // Half note
+      
+      if (playType === 'harmonic') {
+        await playChord(rootNote, chord.chord_type, noteDuration);
+        
+        // Calculate actual duration: note duration + release time + buffer
+        const noteDurationSeconds = Tone.Time(noteDuration).toSeconds();
+        const releaseTime = selectedInstrument === 'piano' ? 1.5 : 1.2;
+        const buffer = 0.7; // Extra buffer for chord (more notes = more time)
+        const totalDuration = (noteDurationSeconds + releaseTime + buffer) * 1000;
+        
+        setTimeout(() => {
+          setCurrentPlaying(null);
+        }, totalDuration);
+      } else {
+        // Melodic: play notes sequentially
+        await playMelodicChord(rootNote, chord.chord_type, noteDuration, 0.1);
+        
+        // Calculate duration for all notes
+        const noteDurationSeconds = Tone.Time(noteDuration).toSeconds();
+        const releaseTime = selectedInstrument === 'piano' ? 1.5 : 1.2;
+        const gap = 0.1; // Gap between notes in seconds
+        const chordNotes = getChordNotes(chord.root_note, chord.chord_type, 4);
+        const notesCount = chordNotes.length;
+        // Each note plays for noteDuration, with gaps between, plus final release
+        const totalDuration = (
+          (noteDurationSeconds * notesCount) + 
+          (gap * (notesCount - 1)) + 
+          releaseTime + 
+          0.7 // buffer
+        ) * 1000;
+        
+        setTimeout(() => {
+          setCurrentPlaying(null);
+        }, totalDuration);
+      }
+      
+    } catch (error) {
+      console.error('Error playing chord:', error);
       setAudioError('Помилка відтворення звуку');
       setCurrentPlaying(null);
     }
@@ -167,20 +300,38 @@ const Training = () => {
     await playNote(noteWithOctave, '4n');
   };
 
+  const handleGenerate = () => {
+    if (musicElementType === "intervals") {
+      generateIntervals();
+    } else {
+      generateChords();
+    }
+  };
+
+  const hasGenerated = musicElementType === "intervals" 
+    ? generatedIntervals.length > 0 
+    : generatedChords.length > 0;
+
+  const canGenerate = musicElementType === "intervals"
+    ? selectedIntervals.length > 0
+    : selectedChords.length > 0;
+
   return (
     <>
       <Header />
       <div className="training-page">
         <div className="training-page__container">
           <div className="training-page__header">
-            <h1 className="training-page__title">Тренування музичних інтервалів</h1>
+            <h1 className="training-page__title">Тренування музичних елементів</h1>
             <p className="training-page__subtitle">
-              Оберіть інтервали та базову ноту для генерації аудіопрослуховування
+              Оберіть інтервали або акорди та базову ноту для генерації аудіопрослуховування
             </p>
           </div>
 
           <div className="training-page__content">
             <TrainingSettings
+              musicElementType={musicElementType}
+              onMusicElementTypeChange={setMusicElementType}
               selectedNote={selectedNote}
               setSelectedNote={setSelectedNote}
               selectedInstrument={selectedInstrument}
@@ -189,11 +340,16 @@ const Training = () => {
               onIntervalToggle={handleIntervalToggle}
               onSelectAllIntervals={handleSelectAllIntervals}
               onClearIntervals={handleClearIntervals}
-              onGenerateIntervals={generateIntervals}
+              selectedChords={selectedChords}
+              onChordToggle={handleChordToggle}
+              onSelectAllChords={handleSelectAllChords}
+              onClearChords={handleClearChords}
+              onGenerate={handleGenerate}
               onClearGenerated={clearGenerated}
               isGenerating={isLoading}
               isLoaded={isLoaded}
-              hasGeneratedIntervals={generatedIntervals.length > 0}
+              hasGenerated={hasGenerated}
+              canGenerate={canGenerate}
             />
 
             <ErrorMessage 
@@ -201,16 +357,29 @@ const Training = () => {
               onClose={() => setAudioError(null)} 
             />
 
-            <GeneratedIntervals
-              intervals={generatedIntervals}
-              selectedNote={selectedNote}
-              currentPlaying={currentPlaying}
-              loadingAudio={isLoading}
-              onPlayAudio={handlePlayAudio}
-              onStopAudio={handleStopAudio}
-              isGenerating={isLoading}
-              instrumentLoaded={isLoaded}
-            />
+            {musicElementType === "intervals" ? (
+              <GeneratedIntervals
+                intervals={generatedIntervals}
+                selectedNote={selectedNote}
+                currentPlaying={currentPlaying}
+                loadingAudio={isLoading}
+                onPlayAudio={handlePlayInterval}
+                onStopAudio={handleStopAudio}
+                isGenerating={isLoading}
+                instrumentLoaded={isLoaded}
+              />
+            ) : (
+              <GeneratedChords
+                chords={generatedChords}
+                selectedNote={selectedNote}
+                currentPlaying={currentPlaying}
+                loadingAudio={isLoading}
+                onPlayAudio={handlePlayChord}
+                onStopAudio={handleStopAudio}
+                isGenerating={isLoading}
+                instrumentLoaded={isLoaded}
+              />
+            )}
           </div>
         </div>
       </div>
