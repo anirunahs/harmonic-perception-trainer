@@ -18,7 +18,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
         fields = [
-            'id', 'experience_points', 'level', 'xp_for_next_level',
+            'id', 'role', 'experience_points', 'level', 'xp_for_next_level',
             'vocal_range_min_frequency', 'vocal_range_max_frequency',
             'vocal_range_min_note', 'vocal_range_max_note',
             'created_at', 'updated_at'
