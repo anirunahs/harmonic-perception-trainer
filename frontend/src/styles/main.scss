@@ -203,7 +203,7 @@
     color: variables.$white;
 
     &:hover:not(:disabled) {
-      background: #dc2626;
+      background: variables.$error-hover;
     }
   }
 
@@ -223,7 +223,7 @@
     color: variables.$white;
 
     &:hover:not(:disabled) {
-      background: #059669;
+      background: variables.$success-hover;
     }
   }
 
