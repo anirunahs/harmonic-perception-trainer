@@ -60,9 +60,9 @@ class GenerateIntervalsView(APIView):
     """
     permission_classes = [IsAuthenticated]
     
-    # Supported instruments for audio generation
-    SUPPORTED_INSTRUMENTS = ['piano', 'guitar', 'synth']
-    DEFAULT_INSTRUMENT = 'piano'
+    # Backend generates only synth; piano/guitar use client-side samples (Tone.js)
+    SUPPORTED_INSTRUMENTS = ['synth']
+    DEFAULT_INSTRUMENT = 'synth'
     
     def __init__(self):
         super().__init__()
@@ -93,17 +93,18 @@ class GenerateIntervalsView(APIView):
                 )
             
             if instrument not in self.SUPPORTED_INSTRUMENTS:
-                return Response(
-                    {'error': f'Непідтримуваний інструмент. Доступні: {", ".join(self.SUPPORTED_INSTRUMENTS)}'}, 
-                    status=status.HTTP_400_BAD_REQUEST
+                msg = (
+                    f'Backend generation supports only: {", ".join(self.SUPPORTED_INSTRUMENTS)}. '
+                    'Use client-side playback for piano/guitar (samples).'
                 )
-            
+                return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
+
             # Prepare user audio directory
             user_audio_dir = os.path.join(self.audio_dir, str(request.user.id))
             if os.path.exists(user_audio_dir):
                 shutil.rmtree(user_audio_dir)
             os.makedirs(user_audio_dir, exist_ok=True)
-            
+
             # Create generator using Factory Method
             generator = self.factory.create_generator(instrument)
             
@@ -413,9 +414,9 @@ class GenerateSingleNoteView(APIView):
     """
     permission_classes = [IsAuthenticated]
     
-    SUPPORTED_INSTRUMENTS = ['piano', 'guitar', 'synth']
-    DEFAULT_INSTRUMENT = 'piano'
-    
+    SUPPORTED_INSTRUMENTS = ['synth']
+    DEFAULT_INSTRUMENT = 'synth'
+
     def __init__(self):
         super().__init__()
         self.audio_dir = os.path.join(settings.MEDIA_ROOT, 'testing_audio')
@@ -445,19 +446,20 @@ class GenerateSingleNoteView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Validate instrument
+            # Validate instrument (backend generates only synth; piano/guitar are client-side)
             if instrument not in self.SUPPORTED_INSTRUMENTS:
-                return Response(
-                    {'error': f'Непідтримуваний інструмент. Доступні: {", ".join(self.SUPPORTED_INSTRUMENTS)}'}, 
-                    status=status.HTTP_400_BAD_REQUEST
+                msg = (
+                    f'Backend generation supports only: {", ".join(self.SUPPORTED_INSTRUMENTS)}. '
+                    'Use client-side playback for piano/guitar (samples).'
                 )
-            
+                return Response({'error': msg}, status=status.HTTP_400_BAD_REQUEST)
+
             # Prepare user audio directory
             user_audio_dir = os.path.join(self.audio_dir, str(request.user.id))
             if os.path.exists(user_audio_dir):
                 shutil.rmtree(user_audio_dir)
             os.makedirs(user_audio_dir, exist_ok=True)
-            
+
             # Get frequency using module function
             frequency = get_note_frequency(note, octave)
             

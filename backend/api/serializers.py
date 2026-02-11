@@ -93,9 +93,9 @@ class CreateTestSessionSerializer(serializers.Serializer):
     )
     instrument = serializers.CharField(
         max_length=20, 
-        default='piano', 
+        default='synth',
         required=False,
-        help_text="Instrument type for audio generation ('piano', 'guitar')"
+        help_text="Instrument type for backend audio generation ('synth'); piano/guitar use client-side samples"
     )
 
 
