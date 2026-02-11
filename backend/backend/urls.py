@@ -7,6 +7,7 @@ from api.views import (CreateUserView, GenerateIntervalsView, SecureAudioView, C
                        TestSessionListView, TestSessionDetailView, UserAchievementsView, 
                        GenerateSingleNoteView, TestingSecureAudioView, ClearTestingAudioView)
 from api.recognition_views import (IntervalRecognitionView, ModelStatusView, AudioDiagnosticsView)
+from api.experiments_views import OvertonesExperimentView, ExperimentsListView, SpectrogramGridView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
@@ -36,6 +37,10 @@ urlpatterns = [
     path("api/testing/generate-note/", GenerateSingleNoteView.as_view(), name="generate_single_note"),
     path("api/testing/audio/<str:user_id>/<str:filename>", TestingSecureAudioView.as_view(), name="testing_secure_audio"),
     path("api/testing/clear-audio/", ClearTestingAudioView.as_view(), name="clear_testing_audio"),
+
+    path("api/experiments/", ExperimentsListView.as_view(), name="experiments_list"),
+    path("api/experiments/overtones/", OvertonesExperimentView.as_view(), name="experiments_overtones"),
+    path("api/experiments/overtones/spectrogram-grid/", SpectrogramGridView.as_view(), name="experiments_spectrogram_grid"),
 
     path("api-auth/", include("rest_framework.urls")),
 ]
