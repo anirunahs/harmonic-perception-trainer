@@ -51,13 +51,39 @@
   }
 }
 
-// Вибір типу тесту
+// Вибір типу тесту (картки в тому ж стилі, що й контент на тренуванні/розпізнаванні)
 .test-type-selection {
-  .section-title {
+  &__header {
+    text-align: center;
+    padding: $space-8 0 $space-6;
+    margin-bottom: $space-4;
+    border-top: 1px solid $border-color;
+    background: linear-gradient(180deg, rgba($primary-color, 0.04) 0%, transparent 100%);
+    border-radius: 0 0 $radius-lg $radius-lg;
+  }
+
+  &__title {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-3;
     font-size: $font-size-xl;
     font-weight: 600;
     color: $text-primary;
-    margin-bottom: $space-6;
+    margin: 0 0 $space-2;
+
+    .test-type-selection__title-icon {
+      width: 1.5rem;
+      height: 1.5rem;
+      color: $primary-color;
+      flex-shrink: 0;
+    }
+  }
+
+  &__subtitle {
+    font-size: $font-size-sm;
+    color: $text-secondary;
+    margin: 0;
+    font-weight: 500;
   }
 }
 
@@ -71,45 +97,147 @@
   }
 }
 
-.test-type-card {
+// Стилі карток вибору типу тесту (тільки в .test-type-selection, щоб не перебивались _interval-test.scss)
+.test-type-selection .test-type-card {
   background: $white;
-  border: 2px solid $border-color;
+  border: 1px solid $border-color-light;
   border-radius: $radius-xl;
-  padding: $space-6;
-  text-align: center;
+  overflow: hidden;
+  text-align: left;
   cursor: pointer;
   transition: all $transition-fast;
-  box-shadow: $shadow;
+  box-shadow: $shadow-lg;
 
   &:hover {
-    border-color: $primary-color;
-    transform: translateY(-2px);
-    box-shadow: $shadow-md;
+    border-color: rgba($primary-color, 0.4);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 24px -8px rgba($primary-color, 0.15), $shadow-md;
   }
 
   &--selected {
     border-color: $primary-color;
-    background: rgba($primary-color, 0.05);
-    box-shadow: $shadow-md;
+    box-shadow: 0 0 0 3px rgba($primary-color, 0.15);
+  }
+
+  &__header {
+    padding: $space-6 $space-6 $space-5;
+    background: $gray-800;
+    color: #fff;
+    text-align: center;
+
+    .test-type-card__icon,
+    .test-type-card__name,
+    .test-type-card__icon svg {
+      color: #fff !important;
+    }
   }
 
   &__icon {
-    font-size: 3rem;
-    margin-bottom: $space-4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: $space-3;
+
+    svg {
+      width: 2.75rem;
+      height: 2.75rem;
+      color: #fff;
+      opacity: 0.95;
+    }
   }
 
   &__name {
     font-size: $font-size-xl;
     font-weight: 600;
-    color: $text-primary;
-    margin-bottom: $space-3;
+    color: #fff;
+    margin: 0;
+    line-height: 1.25;
+  }
+
+  &__body {
+    padding: $space-5 $space-6 $space-6;
   }
 
   &__description {
     font-size: $font-size-sm;
     color: $text-secondary;
     line-height: 1.5;
+    margin: 0 0 $space-4;
+  }
+
+  &__meta {
+    display: flex;
+    align-items: center;
+    gap: $space-4;
+    flex-wrap: wrap;
     margin-bottom: $space-4;
+  }
+
+  .test-meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-2;
+    font-size: $font-size-sm;
+    color: $text-secondary;
+
+    .meta-icon {
+      width: 1rem;
+      height: 1rem;
+      color: $text-light;
+      flex-shrink: 0;
+    }
+  }
+
+  &__skills {
+    margin-bottom: $space-4;
+
+    .skills-label {
+      display: block;
+      font-size: $font-size-xs;
+      font-weight: 600;
+      color: $text-secondary;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: $space-2;
+    }
+
+    .skills-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: $space-2;
+    }
+
+    .skill-tag {
+      display: inline-block;
+      padding: $space-1 $space-2;
+      font-size: $font-size-xs;
+      font-weight: 500;
+      color: $text-primary;
+      background: $gray-100;
+      border: 1px solid $gray-300;
+      border-radius: $radius;
+    }
+  }
+
+  &__tip {
+    display: flex;
+    align-items: flex-start;
+    gap: $space-2;
+    padding: $space-3 $space-4;
+    font-size: $font-size-sm;
+    color: $text-secondary;
+    line-height: 1.45;
+    background: $gray-100;
+    border-radius: $radius-md;
+    border-left: 3px solid $gray-400;
+
+    .tip-icon {
+      width: 1.125rem;
+      height: 1.125rem;
+      color: $gray-500;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
   }
 
   &__difficulty {
@@ -128,18 +256,40 @@
   }
 }
 
-// Налаштування тесту
+// Налаштування тесту (той самий патерн, що й training-settings та блоки розпізнавання)
 .test-settings {
   background: $white;
   border-radius: $radius-xl;
-  padding: $space-6;
-  box-shadow: $shadow;
+  box-shadow: $shadow-lg;
+  border: 1px solid $border-color-light;
+  overflow: hidden;
 
-  .section-title {
+  &__header {
+    padding: $space-6;
+    background: linear-gradient(135deg, $primary-color, $primary-light);
+    color: $white;
+  }
+
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
     font-size: $font-size-xl;
     font-weight: 600;
-    color: $text-primary;
-    margin-bottom: $space-6;
+    margin: 0;
+
+    svg {
+      width: 1.5rem;
+      height: 1.5rem;
+    }
+  }
+
+  &__body {
+    padding: $space-6;
+  }
+
+  &__toolbar {
+    margin-bottom: $space-4;
   }
 }
 
@@ -242,9 +392,61 @@
   }
 }
 
-// Початок тесту
+// Початок тесту (підсумок, кнопка та підказка — стовпчиком з відступами)
 .test-start {
   display: flex;
-  justify-content: center;
-  margin-top: $space-6;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-6;
+  margin-top: $space-8;
+  padding-top: $space-6;
+  border-top: 1px solid $border-color-light;
+
+  .test-summary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: $space-6;
+    flex-wrap: wrap;
+  }
+
+  .summary-item {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-2;
+    font-size: $font-size-sm;
+    font-weight: 500;
+    color: $text-secondary;
+    padding: $space-2 $space-4;
+    background: $gray-50;
+    border: 1px solid $border-color-light;
+    border-radius: $radius-md;
+
+    .summary-icon {
+      width: 1.25rem;
+      height: 1.25rem;
+      color: $primary-color;
+    }
+  }
+
+  .start-test-btn {
+    min-width: 200px;
+  }
+
+  .setting-info {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    max-width: 360px;
+    text-align: center;
+    font-size: $font-size-sm;
+    color: $text-secondary;
+
+    svg {
+      width: 1.25rem;
+      height: 1.25rem;
+      flex-shrink: 0;
+      color: $primary-color;
+    }
+  }
 }
