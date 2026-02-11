@@ -16,10 +16,8 @@ from .generators import AudioGenerator
 from .music_elements import (
     IntervalGenerator,
     ChordGenerator,
-    PianoIntervalGenerator,
-    PianoChordGenerator,
-    GuitarIntervalGenerator,
-    GuitarChordGenerator,
+    SynthIntervalGenerator,
+    SynthChordGenerator,
 )
 
 
@@ -94,61 +92,33 @@ class MusicElementFactory(ABC):
         Get the name of the instrument this factory creates generators for.
         
         Returns:
-            Instrument name (e.g., 'piano', 'guitar')
+            Instrument name (e.g., 'synth')
         """
         pass
 
 
-class PianoMusicElementFactory(MusicElementFactory):
+class SynthMusicElementFactory(MusicElementFactory):
     """
-    Concrete Factory for Piano music elements.
+    Concrete Factory for Synth music elements.
     
     Pattern: Abstract Factory - Concrete Factory
-    
-    Creates piano-specific interval and chord generators.
     """
-    
+
     def _create_audio_generator(self) -> AudioGenerator:
-        """Create piano audio generator."""
-        return self._instrument_factory.create_piano()
-    
+        """Create synth audio generator."""
+        return self._instrument_factory.create_synth()
+
     def create_interval_generator(self) -> IntervalGenerator:
-        """Create piano interval generator."""
-        return PianoIntervalGenerator(self._get_audio_generator())
-    
+        """Create synth interval generator."""
+        return SynthIntervalGenerator(self._get_audio_generator())
+
     def create_chord_generator(self) -> ChordGenerator:
-        """Create piano chord generator."""
-        return PianoChordGenerator(self._get_audio_generator())
-    
+        """Create synth chord generator."""
+        return SynthChordGenerator(self._get_audio_generator())
+
     def get_instrument_name(self) -> str:
         """Get instrument name."""
-        return 'piano'
-
-
-class GuitarMusicElementFactory(MusicElementFactory):
-    """
-    Concrete Factory for Guitar music elements.
-    
-    Pattern: Abstract Factory - Concrete Factory
-    
-    Creates guitar-specific interval and chord generators.
-    """
-    
-    def _create_audio_generator(self) -> AudioGenerator:
-        """Create guitar audio generator."""
-        return self._instrument_factory.create_guitar()
-    
-    def create_interval_generator(self) -> IntervalGenerator:
-        """Create guitar interval generator."""
-        return GuitarIntervalGenerator(self._get_audio_generator())
-    
-    def create_chord_generator(self) -> ChordGenerator:
-        """Create guitar chord generator."""
-        return GuitarChordGenerator(self._get_audio_generator())
-    
-    def get_instrument_name(self) -> str:
-        """Get instrument name."""
-        return 'guitar'
+        return 'synth'
 
 
 class MusicElementFactoryRegistry:
@@ -159,18 +129,17 @@ class MusicElementFactoryRegistry:
     """
     
     _factories = {
-        'piano': PianoMusicElementFactory,
-        'guitar': GuitarMusicElementFactory,
+        'synth': SynthMusicElementFactory,
     }
-    
+
     @classmethod
-    def create_factory(cls, instrument: str, 
+    def create_factory(cls, instrument: str,
                       instrument_factory: Optional[InstrumentFactory] = None) -> MusicElementFactory:
         """
         Create music element factory for specified instrument.
-        
+
         Args:
-            instrument: Instrument name ('piano', 'guitar')
+            instrument: Instrument name ('synth')
             instrument_factory: Optional InstrumentFactory instance
             
         Returns:
