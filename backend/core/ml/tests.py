@@ -16,8 +16,8 @@ class TestModelManagerSingleton(unittest.TestCase):
         from core.ml.model_manager import ModelManager
         ModelManager.reset_instance()
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
     def test_singleton_returns_same_instance(self, mock_extractor, mock_classifier):
         """Verify same instance is returned."""
         mock_classifier.return_value.is_loaded = True
@@ -31,8 +31,8 @@ class TestModelManagerSingleton(unittest.TestCase):
         self.assertIs(instance1, instance2)
         self.assertIs(instance2, instance3)
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
     def test_thread_safety(self, mock_extractor, mock_classifier):
         """Verify thread-safe creation."""
         mock_classifier.return_value.is_loaded = True
@@ -75,8 +75,8 @@ class TestModelManagerLoading(unittest.TestCase):
         from core.ml.model_manager import ModelManager
         ModelManager.reset_instance()
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
     def test_eager_loading_on_creation(self, mock_extractor, mock_classifier):
         """Verify models are loaded immediately on creation."""
         mock_classifier.return_value.is_loaded = True
@@ -88,8 +88,8 @@ class TestModelManagerLoading(unittest.TestCase):
         mock_extractor.assert_called_once()
         mock_classifier.assert_called_once()
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
     def test_is_ready_when_loaded(self, mock_extractor, mock_classifier):
         """Verify is_ready returns True when loaded."""
         mock_classifier.return_value.is_loaded = True
@@ -101,8 +101,8 @@ class TestModelManagerLoading(unittest.TestCase):
         self.assertTrue(instance.is_ready)
         self.assertIsNone(instance.load_error)
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
     def test_is_not_ready_when_classifier_not_loaded(self, mock_extractor, mock_classifier):
         """Verify is_ready returns False when classifier not loaded."""
         mock_classifier.return_value.is_loaded = False
@@ -114,8 +114,8 @@ class TestModelManagerLoading(unittest.TestCase):
         self.assertFalse(instance.is_ready)
         self.assertIsNotNone(instance.load_error)
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
     def test_handles_loading_exception(self, mock_extractor, mock_classifier):
         """Verify exception handling during load."""
         mock_classifier.side_effect = Exception("Test error")
@@ -139,8 +139,8 @@ class TestModelManagerAccess(unittest.TestCase):
         from core.ml.model_manager import ModelManager
         ModelManager.reset_instance()
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
     def test_classifier_property(self, mock_extractor, mock_classifier):
         """Verify classifier property returns classifier."""
         mock_classifier_instance = MagicMock()
@@ -153,8 +153,8 @@ class TestModelManagerAccess(unittest.TestCase):
         
         self.assertIs(instance.classifier, mock_classifier_instance)
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
     def test_feature_extractor_property(self, mock_extractor, mock_classifier):
         """Verify feature_extractor property returns extractor."""
         mock_extractor_instance = MagicMock()
@@ -167,8 +167,8 @@ class TestModelManagerAccess(unittest.TestCase):
         
         self.assertIs(instance.feature_extractor, mock_extractor_instance)
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
     def test_classifier_raises_when_not_loaded(self, mock_extractor, mock_classifier):
         """Verify RuntimeError when accessing unloaded classifier."""
         mock_classifier.return_value.is_loaded = False
@@ -180,8 +180,8 @@ class TestModelManagerAccess(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             _ = instance.classifier
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
     def test_get_status(self, mock_extractor, mock_classifier):
         """Verify get_status returns dict with correct keys."""
         mock_classifier.return_value.is_loaded = True
@@ -209,8 +209,8 @@ class TestModelManagerReload(unittest.TestCase):
         from core.ml.model_manager import ModelManager
         ModelManager.reset_instance()
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
     def test_reload_reloads_models(self, mock_extractor, mock_classifier):
         """Verify reload() reloads models."""
         mock_classifier.return_value.is_loaded = True
