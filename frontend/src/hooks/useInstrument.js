@@ -77,6 +77,8 @@ const INSTRUMENT_CONFIGS = {
   }
 };
 
+export { INSTRUMENT_CONFIGS, INTERVALS };
+
 /**
  * Interval semitones mapping
  */
