@@ -12,7 +12,7 @@ from .constants import (
     get_frequency_with_semitone_offset,
     get_target_note,
 )
-from .generators import AudioGenerator, SynthGenerator
+from .generators import AudioGenerator, SynthGenerator, PianoGenerator
 from .factory import InstrumentFactory, get_factory
 from .music_elements import (
     IntervalGenerator,
@@ -49,6 +49,7 @@ __all__ = [
     # Generators
     'AudioGenerator',
     'SynthGenerator',
+    'PianoGenerator',
     # Factory Method
     'InstrumentFactory',
     'get_factory',

@@ -129,6 +129,20 @@ class InstrumentHarmonics:
         (9, 0.111),
     ]
 
+    # Piano-like: strong fundamental, then harmonics decay (for overtone experiments)
+    PIANO: List[Tuple[int, float]] = [
+        (1, 1.0),
+        (2, 0.5),
+        (3, 0.35),
+        (4, 0.25),
+        (5, 0.2),
+        (6, 0.15),
+        (7, 0.12),
+        (8, 0.1),
+        (9, 0.08),
+        (10, 0.06),
+    ]
+
 
 def get_note_frequency(note: str, octave: int = 4) -> float:
     """
