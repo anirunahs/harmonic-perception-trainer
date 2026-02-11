@@ -53,19 +53,24 @@ const TestSettings = ({
 
   return (
     <div className="test-settings">
-      <div className="settings-header">
-        <h2 className="section-title">
+      <div className="test-settings__header">
+        <h2 className="test-settings__title">
           <Settings />
           Налаштування тесту
         </h2>
-        <button 
-          className="btn btn--ghost btn--sm"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-        >
-          {showAdvanced ? 'Приховати' : 'Показати'} додаткові налаштування
-        </button>
       </div>
-      
+
+      <div className="test-settings__body">
+        <div className="test-settings__toolbar">
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+          >
+            {showAdvanced ? 'Приховати' : 'Показати'} додаткові налаштування
+          </button>
+        </div>
+
       <div className="settings-grid">
         {/* Основні налаштування */}
         <div className="setting-group">
@@ -304,6 +309,7 @@ const TestSettings = ({
             <span>Оберіть хоча б один інтервал для початку тесту</span>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
