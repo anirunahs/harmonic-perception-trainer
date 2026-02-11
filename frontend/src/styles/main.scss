@@ -207,6 +207,16 @@
     }
   }
 
+  // Зупинити відтворення (нейтральний, не червоний)
+  &--stop-playback {
+    background: variables.$gray-600;
+    color: variables.$white;
+
+    &:hover:not(:disabled) {
+      background: variables.$gray-700;
+    }
+  }
+
   // Success кнопка
   &--success {
     background: variables.$success-color;

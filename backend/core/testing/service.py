@@ -41,7 +41,7 @@ class TestSessionService:
             **options: Additional parameters:
                 - total_questions: Number of questions (default: 10)
                 - intervals: List of intervals (default: all available)
-                - instrument: Instrument type ('piano', 'guitar', default: 'piano')
+                - instrument: Instrument type for backend generation ('synth', default: 'synth')
             
         Returns:
             Created TestSession instance

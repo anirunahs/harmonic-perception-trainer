@@ -22,9 +22,12 @@ const ExperiencePanel = ({ profile, isLoading }) => {
 
   const { level, experience_points, xp_for_next_level } = profile;
   const currentLevelXP = calculateCurrentLevelXP(experience_points, level);
-  const nextLevelXP = xp_for_next_level || 100;
-  const progressPercentage = nextLevelXP > 0 
-    ? Math.min((currentLevelXP / nextLevelXP) * 100, 100) 
+  // xp_for_next_level з бекенду — це вже скільки XP залишилось до наступного рівня
+  const remainingXP = xp_for_next_level != null ? xp_for_next_level : 100;
+  // Прогрес у межах поточного рівня: скільки набрано / (набрано + залишилось)
+  const xpRequiredThisLevel = currentLevelXP + remainingXP;
+  const progressPercentage = xpRequiredThisLevel > 0
+    ? Math.min((currentLevelXP / xpRequiredThisLevel) * 100, 100)
     : 0;
 
   return (
@@ -40,7 +43,7 @@ const ExperiencePanel = ({ profile, isLoading }) => {
           <span className="experience-panel__xp-current">{experience_points}</span>
           <span className="experience-panel__xp-separator">/</span>
           <span className="experience-panel__xp-next">
-            {experience_points + nextLevelXP}
+            {experience_points + remainingXP}
           </span>
         </div>
           
@@ -55,7 +58,7 @@ const ExperiencePanel = ({ profile, isLoading }) => {
           
           <div className="experience-panel__xp-remaining">
             <TrendingUp className="experience-panel__trend-icon" />
-            <span>{nextLevelXP - currentLevelXP} XP до наступного рівня</span>
+            <span>{remainingXP} XP до наступного рівня</span>
           </div>
         </div>
       </div>

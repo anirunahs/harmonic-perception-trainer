@@ -35,7 +35,7 @@ class TestSessionBuilder:
             .set_test_type('interval_recognition')
             .set_total_questions(10)
             .set_intervals(['major_third', 'perfect_fifth'])
-            .set_instrument('piano')
+            .set_instrument('synth')
             .build())
     """
     
@@ -63,7 +63,7 @@ class TestSessionBuilder:
         self._test_type: Optional[str] = None
         self._total_questions: int = 10
         self._intervals: List[str] = []
-        self._instrument: str = 'piano'
+        self._instrument: str = 'synth'
         self._base_notes: List[str] = self.BASE_NOTES.copy()
         self._octaves: List[int] = self.OCTAVES.copy()
     
@@ -118,7 +118,7 @@ class TestSessionBuilder:
         Set instrument for audio generation.
         
         Args:
-            instrument: Instrument type ('piano', 'guitar')
+            instrument: Instrument type ('synth'; piano/guitar use client-side samples)
             
         Returns:
             Self for method chaining
