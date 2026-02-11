@@ -31,7 +31,7 @@ class TestTestSessionBuilder(TestCase):
             .set_test_type('interval_recognition')
             .set_total_questions(5)
             .set_intervals(['major_third'])
-            .set_instrument('piano')
+            .set_instrument('synth')
             .build())
         
         self.assertIsInstance(session, TestSession)
@@ -46,7 +46,7 @@ class TestTestSessionBuilder(TestCase):
             .set_test_type('interval_recognition')
             .set_total_questions(3)
             .set_intervals(['major_third'])
-            .set_instrument('piano')
+            .set_instrument('synth')
             .build())
         
         self.assertEqual(session.questions.count(), 3)
@@ -60,7 +60,7 @@ class TestTestSessionBuilder(TestCase):
             .set_test_type('interval_recognition')
             .set_total_questions(10)
             .set_intervals(['major_third'])
-            .set_instrument('piano'))
+            .set_instrument('synth'))
         
         self.assertIsInstance(result, TestSessionBuilder)
     
