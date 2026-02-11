@@ -1,16 +1,3 @@
-// Старі змінні
-$primary-color: #37507f;
-$text-color-dark: #111;
-$text-color-light: #f0f0f0;
-$border-color: #ccc;
-$input-padding: 10px;
-$form-width: 400px;
-$radius: 4px;
-$shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-$spinner-bg: #f3f3f3;
-$spinner-size: 50px;
-$spinner-border-width: 5px;
-$recording-color: #35795e;
 
 // Основні кольори
 $primary-color: #2563eb;
@@ -18,14 +5,32 @@ $primary-hover: #1d4ed8;
 $primary-light: #3b82f6;
 $secondary-color: #64748b;
 $accent-color: #06b6d4;
+$accent-hover: #0891b2;
+$accent-active: #0e7490;
 
 // Кольори статусів
 $success-color: #10b981;
+$success-hover: #059669;
+$success-active: #047857;
 $warning-color: #f59e0b;
+$warning-hover: #d97706;
 $error-color: #ef4444;
+$error-hover: #dc2626;
+$error-active: #b91c1c;
 $recording-color: #059669;
-// Колір стану «відтворюється» (не червоний)
 $playback-color: #0ea5e9;
+$playback-hover: #0284c7;
+
+// Клавіші піаніно
+$key-white-shade: #f8f9fa;
+$key-white-hover: #e9ecef;
+$key-black: #1a1a1a;
+$key-black-hover: #2d2d2d;
+
+// loading
+$spinner-bg: #f3f3f3;
+$spinner-size: 50px;
+$spinner-border-width: 5px;
 
 // Нейтральні кольори
 $white: #ffffff;

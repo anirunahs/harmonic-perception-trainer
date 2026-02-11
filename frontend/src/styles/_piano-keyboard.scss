@@ -300,14 +300,14 @@
   }
 
   &--white {
-    background: linear-gradient(to bottom, $white 0%, #f8f9fa 100%);
+    background: linear-gradient(to bottom, $white 0%, $key-white-shade 100%);
     border: 1px solid $gray-300;
     border-radius: 0 0 $radius $radius;
     height: 100%;
     z-index: 1;
 
     &:hover {
-      background: linear-gradient(to bottom, #f8f9fa 0%, #e9ecef 100%);
+      background: linear-gradient(to bottom, $key-white-shade 0%, $key-white-hover 100%);
     }
 
     &:active,
@@ -333,7 +333,7 @@
   }
 
   &--black {
-    background: linear-gradient(to bottom, #1a1a1a 0%, #000000 100%);
+    background: linear-gradient(to bottom, $key-black 0%, #000 100%);
     border: 1px solid #000;
     border-radius: 0 0 $radius $radius;
     height: 65%;
@@ -341,12 +341,12 @@
     color: $white;
 
     &:hover {
-      background: linear-gradient(to bottom, #2d2d2d 0%, #1a1a1a 100%);
+      background: linear-gradient(to bottom, $key-black-hover 0%, $key-black 100%);
     }
 
     &:active,
     &--active {
-      background: linear-gradient(to bottom, $accent-color 0%, #0891b2 100%);
+      background: linear-gradient(to bottom, $accent-color 0%, $accent-hover 100%);
       box-shadow: inset 0 3px 8px rgba($accent-color, 0.3);
 
       .piano-key__label {
@@ -476,7 +476,7 @@
     
     &--black:active,
     &--black.piano-key--active {
-      background: linear-gradient(to bottom, $accent-color 0%, #0e7490 100%);
+      background: linear-gradient(to bottom, $accent-color 0%, $accent-active 100%);
     }
   }
 }
