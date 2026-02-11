@@ -16,6 +16,9 @@ from .constants import (
     InstrumentHarmonics,
 )
 
+# Piano-like envelope (quick attack, decay)
+_PIANO_ENVELOPE = ADSREnvelope(attack=0.01, decay=0.3, sustain=0.4, release=0.4)
+
 
 class AudioGenerator(ABC):
     """
@@ -205,3 +208,18 @@ class SynthGenerator(AudioGenerator):
         
         # Use parent implementation for harmonic-based synthesis
         return super()._generate_waveform(t, frequency)
+
+
+class PianoGenerator(AudioGenerator):
+    """
+    Piano-like sound generator for experiments.
+    Uses harmonic series approximating piano timbre for overtone visualization.
+    """
+    def _get_default_adsr(self) -> ADSREnvelope:
+        return _PIANO_ENVELOPE
+
+    def _get_harmonics(self) -> List[Tuple[int, float]]:
+        return InstrumentHarmonics.PIANO
+
+    def get_instrument_name(self) -> str:
+        return "piano"
