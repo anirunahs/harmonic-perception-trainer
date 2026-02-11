@@ -73,7 +73,7 @@ class AudioManager:
         Caches factories to avoid recreating them.
         
         Args:
-            instrument: Instrument name ('piano', 'guitar')
+            instrument: Instrument name ('synth')
             
         Returns:
             MusicElementFactory instance
