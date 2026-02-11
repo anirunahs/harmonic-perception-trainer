@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Music, LogOut, Home, Mic, Ear, BookOpenCheck } from "lucide-react";
+import { Music, LogOut, Home, Mic, Ear, BookOpenCheck, FlaskConical } from "lucide-react";
 import ExperiencePanel from "./ExperiencePanel";
 import { useUserProfileContext } from "../contexts/UserProfileContext";
 
@@ -10,30 +10,13 @@ function Header() {
   const isActive = (path) => location.pathname === path;
 
   const navItems = [
-    { 
-      path: "/", 
-      label: "Головна", 
-      icon: Home, 
-      active: isActive("/") 
-    },
-    { 
-      path: "/recognizer", 
-      label: "Розпізнавання", 
-      icon: Mic, 
-      active: isActive("/recognizer") 
-    },
-    { 
-      path: "/training", 
-      label: "Тренування", 
-      icon: Ear, 
-      active: isActive("/training") 
-    },
-    { 
-      path: "/testing", 
-      label: "Тестування", 
-      icon: BookOpenCheck, 
-      active: isActive("/testing") 
-    }
+    { path: "/", label: "Головна", icon: Home, active: isActive("/") },
+    { path: "/recognizer", label: "Розпізнавання", icon: Mic, active: isActive("/recognizer") },
+    { path: "/training", label: "Тренування", icon: Ear, active: isActive("/training") },
+    { path: "/testing", label: "Тестування", icon: BookOpenCheck, active: isActive("/testing") },
+    ...(profile?.role === "experimenter"
+      ? [{ path: "/experiments", label: "Експерименти", icon: FlaskConical, active: isActive("/experiments") }]
+      : []),
   ];
 
   return (

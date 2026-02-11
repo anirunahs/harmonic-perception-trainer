@@ -8,7 +8,10 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import AudioRecognizer from "./pages/AudioRecognizer";
 import Training from "./pages/Training";
 import Testing from "./pages/Testing";
+import Experiments from "./pages/Experiments";
+import ExperimentOvertones from "./pages/ExperimentOvertones";
 import { UserProfileProvider } from "./contexts/UserProfileContext";
+import RoleProtectedRoute from "./components/RoleProtectedRoute";
 import './styles/main.scss';
 
 function Logout() {
@@ -55,6 +58,26 @@ function App() {
             element={
               <ProtectedRoute>
                 <Testing />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/experiments"
+            element={
+              <ProtectedRoute>
+                <RoleProtectedRoute>
+                  <Experiments />
+                </RoleProtectedRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/experiments/overtones"
+            element={
+              <ProtectedRoute>
+                <RoleProtectedRoute>
+                  <ExperimentOvertones />
+                </RoleProtectedRoute>
               </ProtectedRoute>
             }
           />
