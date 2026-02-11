@@ -20,25 +20,20 @@ from .constants import (
 )
 from .generators import (
     AudioGenerator,
-    PianoGenerator,
-    GuitarGenerator,
     SynthGenerator,
 )
 from .factory import InstrumentFactory, get_factory
 from .abstract_factory import (
     MusicElementFactory,
-    PianoMusicElementFactory,
-    GuitarMusicElementFactory,
+    SynthMusicElementFactory,
     MusicElementFactoryRegistry,
 )
 from .audio_manager import AudioManager, get_audio_manager
 from .music_elements import (
     IntervalGenerator,
     ChordGenerator,
-    PianoIntervalGenerator,
-    PianoChordGenerator,
-    GuitarIntervalGenerator,
-    GuitarChordGenerator,
+    SynthIntervalGenerator,
+    SynthChordGenerator,
 )
 from .utils import (
     combine_tones_harmonic,
@@ -114,63 +109,8 @@ class TestADSREnvelope(unittest.TestCase):
     
     def test_instrument_envelopes(self):
         """Test predefined instrument envelopes exist."""
-        self.assertIsNotNone(InstrumentEnvelopes.PIANO)
-        self.assertIsNotNone(InstrumentEnvelopes.GUITAR)
         self.assertIsNotNone(InstrumentEnvelopes.SYNTH_PAD)
-
-
-class TestPianoGenerator(unittest.TestCase):
-    """Test PianoGenerator class."""
-    
-    def setUp(self):
-        self.generator = PianoGenerator()
-    
-    def test_instrument_name(self):
-        """Test that instrument name is correct."""
-        self.assertEqual(self.generator.get_instrument_name(), 'piano')
-    
-    def test_generate_tone_returns_array(self):
-        """Test that generate_tone returns numpy array."""
-        tone = self.generator.generate_tone(440.0, duration=0.5)
-        self.assertIsInstance(tone, np.ndarray)
-    
-    def test_generate_tone_length(self):
-        """Test that generated tone has correct length."""
-        duration = 1.0
-        tone = self.generator.generate_tone(440.0, duration=duration)
-        expected_samples = int(DEFAULT_SAMPLE_RATE * duration)
-        self.assertEqual(len(tone), expected_samples)
-    
-    def test_generate_tone_normalized(self):
-        """Test that tone is normalized to reasonable amplitude."""
-        tone = self.generator.generate_tone(440.0, duration=0.5)
-        self.assertLessEqual(np.max(np.abs(tone)), 1.0)
-    
-    def test_generate_tone_not_silent(self):
-        """Test that generated tone is not silent."""
-        tone = self.generator.generate_tone(440.0, duration=0.5)
-        self.assertGreater(np.max(np.abs(tone)), 0.01)
-
-
-class TestGuitarGenerator(unittest.TestCase):
-    """Test GuitarGenerator class."""
-    
-    def setUp(self):
-        self.generator = GuitarGenerator()
-    
-    def test_instrument_name(self):
-        """Test that instrument name is correct."""
-        self.assertEqual(self.generator.get_instrument_name(), 'guitar')
-    
-    def test_pluck_position_parameter(self):
-        """Test that pluck position can be configured."""
-        generator = GuitarGenerator(pluck_position=0.3)
-        self.assertEqual(generator.pluck_position, 0.3)
-    
-    def test_generate_tone_not_silent(self):
-        """Test that generated tone is not silent."""
-        tone = self.generator.generate_tone(330.0, duration=0.5)
-        self.assertGreater(np.max(np.abs(tone)), 0.01)
+        self.assertIsNotNone(InstrumentEnvelopes.SYNTH_LEAD)
 
 
 class TestSynthGenerator(unittest.TestCase):
@@ -200,16 +140,6 @@ class TestInstrumentFactory(unittest.TestCase):
     def setUp(self):
         self.factory = InstrumentFactory()
     
-    def test_create_piano(self):
-        """Test creating piano generator via factory."""
-        generator = self.factory.create_generator('piano')
-        self.assertIsInstance(generator, PianoGenerator)
-    
-    def test_create_guitar(self):
-        """Test creating guitar generator via factory."""
-        generator = self.factory.create_generator('guitar')
-        self.assertIsInstance(generator, GuitarGenerator)
-    
     def test_create_synth(self):
         """Test creating synth generator via factory."""
         generator = self.factory.create_generator('synth')
@@ -224,33 +154,36 @@ class TestInstrumentFactory(unittest.TestCase):
         """Test that unknown instrument raises ValueError."""
         with self.assertRaises(ValueError):
             self.factory.create_generator('unknown_instrument')
-    
+
+    def test_piano_raises(self):
+        """Test that piano is not supported (client-side samples only)."""
+        with self.assertRaises(ValueError):
+            self.factory.create_generator('piano')
+
+    def test_guitar_raises(self):
+        """Test that guitar is not supported (client-side samples only)."""
+        with self.assertRaises(ValueError):
+            self.factory.create_generator('guitar')
+
     def test_case_insensitive(self):
         """Test that instrument names are case-insensitive."""
-        generator = self.factory.create_generator('PIANO')
-        self.assertIsInstance(generator, PianoGenerator)
-    
+        generator = self.factory.create_generator('SYNTH')
+        self.assertIsInstance(generator, SynthGenerator)
+
     def test_get_available_instruments(self):
         """Test listing available instruments."""
         instruments = self.factory.get_available_instruments()
-        self.assertIn('piano', instruments)
-        self.assertIn('guitar', instruments)
         self.assertIn('synth', instruments)
-    
-    def test_convenience_methods(self):
-        """Test convenience factory methods."""
-        piano = self.factory.create_piano()
-        guitar = self.factory.create_guitar()
+
+    def test_convenience_method_synth(self):
+        """Test convenience factory method create_synth."""
         synth = self.factory.create_synth()
-        
-        self.assertIsInstance(piano, PianoGenerator)
-        self.assertIsInstance(guitar, GuitarGenerator)
         self.assertIsInstance(synth, SynthGenerator)
-    
+
     def test_custom_adsr(self):
         """Test creating generator with custom ADSR."""
         custom_adsr = ADSREnvelope(attack=0.5, decay=0.5, sustain=0.5, release=0.5)
-        generator = self.factory.create_generator('piano', adsr=custom_adsr)
+        generator = self.factory.create_generator('synth', adsr=custom_adsr)
         self.assertEqual(generator.adsr.attack, 0.5)
 
 
@@ -336,14 +269,13 @@ class TestFactoryRegistration(unittest.TestCase):
     
     def test_register_new_instrument(self):
         """Test registering a new instrument type."""
-        # Create a custom generator class
         class CustomGenerator(AudioGenerator):
             def _get_default_adsr(self):
-                return InstrumentEnvelopes.PIANO
-            
+                return InstrumentEnvelopes.SYNTH_LEAD
+
             def _get_harmonics(self):
                 return [(1, 1.0)]
-            
+
             def get_instrument_name(self):
                 return 'custom'
         
@@ -360,14 +292,13 @@ class TestFactoryRegistration(unittest.TestCase):
     
     def test_unregister_instrument(self):
         """Test unregistering an instrument."""
-        # First register
         class TempGenerator(AudioGenerator):
             def _get_default_adsr(self):
-                return InstrumentEnvelopes.PIANO
-            
+                return InstrumentEnvelopes.SYNTH_LEAD
+
             def _get_harmonics(self):
                 return [(1, 1.0)]
-            
+
             def get_instrument_name(self):
                 return 'temp'
         
@@ -391,141 +322,90 @@ class TestMusicElementFactory(unittest.TestCase):
         with self.assertRaises(TypeError):
             MusicElementFactory()
     
-    def test_piano_factory_creates_piano_generators(self):
-        """Test that PianoMusicElementFactory creates piano generators."""
-        factory = PianoMusicElementFactory()
-        
+    def test_synth_factory_creates_synth_generators(self):
+        """Test that SynthMusicElementFactory creates synth generators."""
+        factory = SynthMusicElementFactory()
         interval_gen = factory.create_interval_generator()
         chord_gen = factory.create_chord_generator()
-        
-        self.assertIsInstance(interval_gen, PianoIntervalGenerator)
-        self.assertIsInstance(chord_gen, PianoChordGenerator)
-        self.assertEqual(factory.get_instrument_name(), 'piano')
-    
-    def test_guitar_factory_creates_guitar_generators(self):
-        """Test that GuitarMusicElementFactory creates guitar generators."""
-        factory = GuitarMusicElementFactory()
-        
-        interval_gen = factory.create_interval_generator()
-        chord_gen = factory.create_chord_generator()
-        
-        self.assertIsInstance(interval_gen, GuitarIntervalGenerator)
-        self.assertIsInstance(chord_gen, GuitarChordGenerator)
-        self.assertEqual(factory.get_instrument_name(), 'guitar')
-    
+        self.assertIsInstance(interval_gen, SynthIntervalGenerator)
+        self.assertIsInstance(chord_gen, SynthChordGenerator)
+        self.assertEqual(factory.get_instrument_name(), 'synth')
+
     def test_factory_consistency(self):
-        """Test that factory creates compatible generators."""
-        factory = PianoMusicElementFactory()
-        
+        """Test that factory creates compatible generators (same instrument family)."""
+        factory = SynthMusicElementFactory()
         interval_gen = factory.create_interval_generator()
         chord_gen = factory.create_chord_generator()
-        
-        # Both should use the same instrument
-        self.assertEqual(interval_gen.get_instrument_name(), 'piano')
-        self.assertEqual(chord_gen.get_instrument_name(), 'piano')
-    
+        self.assertIn('synth', interval_gen.get_instrument_name())
+        self.assertEqual(interval_gen.get_instrument_name(), chord_gen.get_instrument_name())
+
     def test_factory_reuses_audio_generator(self):
         """Test that factory reuses audio generator instance."""
-        factory = PianoMusicElementFactory()
-        
+        factory = SynthMusicElementFactory()
         interval_gen1 = factory.create_interval_generator()
         interval_gen2 = factory.create_interval_generator()
-        
-        # Should use the same audio generator instance
         self.assertIs(interval_gen1.audio_generator, interval_gen2.audio_generator)
 
 
 class TestMusicElementFactoryRegistry(unittest.TestCase):
     """Test MusicElementFactoryRegistry."""
     
-    def test_create_piano_factory(self):
-        """Test creating piano factory via registry."""
-        factory = MusicElementFactoryRegistry.create_factory('piano')
-        self.assertIsInstance(factory, PianoMusicElementFactory)
-    
-    def test_create_guitar_factory(self):
-        """Test creating guitar factory via registry."""
-        factory = MusicElementFactoryRegistry.create_factory('guitar')
-        self.assertIsInstance(factory, GuitarMusicElementFactory)
-    
+    def test_create_synth_factory(self):
+        """Test creating synth factory via registry."""
+        factory = MusicElementFactoryRegistry.create_factory('synth')
+        self.assertIsInstance(factory, SynthMusicElementFactory)
+
     def test_unknown_instrument_raises(self):
         """Test that unknown instrument raises ValueError."""
         with self.assertRaises(ValueError):
             MusicElementFactoryRegistry.create_factory('unknown')
-    
+
     def test_case_insensitive(self):
         """Test that instrument names are case-insensitive."""
-        factory = MusicElementFactoryRegistry.create_factory('PIANO')
-        self.assertIsInstance(factory, PianoMusicElementFactory)
-    
+        factory = MusicElementFactoryRegistry.create_factory('SYNTH')
+        self.assertIsInstance(factory, SynthMusicElementFactory)
+
     def test_get_available_instruments(self):
         """Test listing available instruments."""
         instruments = MusicElementFactoryRegistry.get_available_instruments()
-        self.assertIn('piano', instruments)
-        self.assertIn('guitar', instruments)
-    
+        self.assertIn('synth', instruments)
+
     def test_register_factory(self):
         """Test registering a new factory."""
-        # Create a custom factory
         class CustomMusicElementFactory(MusicElementFactory):
             def _create_audio_generator(self):
-                return InstrumentFactory().create_piano()
-            
+                return InstrumentFactory().create_synth()
+
             def create_interval_generator(self):
-                return PianoIntervalGenerator(self._get_audio_generator())
-            
+                return SynthIntervalGenerator(self._get_audio_generator())
+
             def create_chord_generator(self):
-                return PianoChordGenerator(self._get_audio_generator())
-            
+                return SynthChordGenerator(self._get_audio_generator())
+
             def get_instrument_name(self):
                 return 'custom'
-        
-        # Register it
+
         MusicElementFactoryRegistry.register_factory('custom', CustomMusicElementFactory)
-        
-        # Create via registry
         factory = MusicElementFactoryRegistry.create_factory('custom')
         self.assertIsInstance(factory, CustomMusicElementFactory)
-        
-        # Clean up - restore original state
-        # Note: In real scenario, might want to keep or properly restore
 
 
 class TestIntervalGenerator(unittest.TestCase):
     """Test IntervalGenerator implementations."""
-    
+
     def setUp(self):
-        """Set up test fixtures."""
-        self.piano_factory = PianoMusicElementFactory()
-        self.guitar_factory = GuitarMusicElementFactory()
-    
-    def test_piano_harmonic_interval(self):
-        """Test piano harmonic interval generation."""
-        generator = self.piano_factory.create_interval_generator()
+        self.synth_factory = SynthMusicElementFactory()
+
+    def test_synth_harmonic_interval(self):
+        """Test synth harmonic interval generation."""
+        generator = self.synth_factory.create_interval_generator()
         audio = generator.generate_harmonic_interval('C', 'major_third', octave=4, duration=0.5)
-        
         self.assertIsInstance(audio, np.ndarray)
         self.assertGreater(len(audio), 0)
-    
-    def test_piano_melodic_interval(self):
-        """Test piano melodic interval generation."""
-        generator = self.piano_factory.create_interval_generator()
-        audio = generator.generate_melodic_interval('C', 'major_third', octave=4, duration=0.5)
-        
-        self.assertIsInstance(audio, np.ndarray)
-        self.assertGreater(len(audio), 0)
-    
-    def test_guitar_harmonic_interval(self):
-        """Test guitar harmonic interval generation."""
-        generator = self.guitar_factory.create_interval_generator()
-        audio = generator.generate_harmonic_interval('C', 'perfect_fifth', octave=4, duration=0.5)
-        
-        self.assertIsInstance(audio, np.ndarray)
-        self.assertGreater(len(audio), 0)
-    
-    def test_guitar_melodic_interval(self):
-        """Test guitar melodic interval generation."""
-        generator = self.guitar_factory.create_interval_generator()
+
+    def test_synth_melodic_interval(self):
+        """Test synth melodic interval generation."""
+        generator = self.synth_factory.create_interval_generator()
         audio = generator.generate_melodic_interval('C', 'perfect_fifth', octave=4, duration=0.5)
         
         self.assertIsInstance(audio, np.ndarray)
@@ -533,55 +413,41 @@ class TestIntervalGenerator(unittest.TestCase):
     
     def test_melodic_interval_has_gap(self):
         """Test that melodic interval includes gap between notes."""
-        generator = self.piano_factory.create_interval_generator()
+        generator = self.synth_factory.create_interval_generator()
         audio_short = generator.generate_melodic_interval('C', 'major_third', duration=0.1, gap=0.0)
         audio_with_gap = generator.generate_melodic_interval('C', 'major_third', duration=0.1, gap=0.1)
-        
-        # Audio with gap should be longer
         self.assertGreater(len(audio_with_gap), len(audio_short))
-    
+
     def test_unknown_interval_raises(self):
         """Test that unknown interval type raises ValueError."""
-        generator = self.piano_factory.create_interval_generator()
+        generator = self.synth_factory.create_interval_generator()
         with self.assertRaises(ValueError):
             generator.generate_harmonic_interval('C', 'unknown_interval')
 
 
 class TestChordGenerator(unittest.TestCase):
     """Test ChordGenerator implementations."""
-    
+
     def setUp(self):
-        """Set up test fixtures."""
-        self.piano_factory = PianoMusicElementFactory()
-        self.guitar_factory = GuitarMusicElementFactory()
-    
-    def test_piano_major_chord(self):
-        """Test piano major chord generation."""
-        generator = self.piano_factory.create_chord_generator()
+        self.synth_factory = SynthMusicElementFactory()
+
+    def test_synth_major_chord(self):
+        """Test synth major chord generation."""
+        generator = self.synth_factory.create_chord_generator()
         audio = generator.generate_chord('C', 'major', octave=4, duration=0.5)
-        
         self.assertIsInstance(audio, np.ndarray)
         self.assertGreater(len(audio), 0)
-    
-    def test_piano_minor_chord(self):
-        """Test piano minor chord generation."""
-        generator = self.piano_factory.create_chord_generator()
+
+    def test_synth_minor_chord(self):
+        """Test synth minor chord generation."""
+        generator = self.synth_factory.create_chord_generator()
         audio = generator.generate_chord('C', 'minor', octave=4, duration=0.5)
-        
         self.assertIsInstance(audio, np.ndarray)
         self.assertGreater(len(audio), 0)
-    
-    def test_guitar_major_chord(self):
-        """Test guitar major chord generation."""
-        generator = self.guitar_factory.create_chord_generator()
-        audio = generator.generate_chord('C', 'major', octave=4, duration=0.5)
-        
-        self.assertIsInstance(audio, np.ndarray)
-        self.assertGreater(len(audio), 0)
-    
+
     def test_unknown_chord_raises(self):
         """Test that unknown chord type raises ValueError."""
-        generator = self.piano_factory.create_chord_generator()
+        generator = self.synth_factory.create_chord_generator()
         with self.assertRaises(ValueError):
             generator.generate_chord('C', 'unknown_chord')
 
@@ -625,62 +491,35 @@ class TestAudioManager(unittest.TestCase):
     def test_get_music_element_factory_caching(self):
         """Test that music element factories are cached."""
         manager = AudioManager()
-        
-        factory1 = manager.get_music_element_factory('piano')
-        factory2 = manager.get_music_element_factory('piano')
-        
-        # Should return same instance (cached)
+        factory1 = manager.get_music_element_factory('synth')
+        factory2 = manager.get_music_element_factory('synth')
         self.assertIs(factory1, factory2)
-        self.assertIsInstance(factory1, PianoMusicElementFactory)
-    
-    def test_get_music_element_factory_different_instruments(self):
-        """Test getting factories for different instruments."""
-        manager = AudioManager()
-        
-        piano_factory = manager.get_music_element_factory('piano')
-        guitar_factory = manager.get_music_element_factory('guitar')
-        
-        self.assertIsInstance(piano_factory, PianoMusicElementFactory)
-        self.assertIsInstance(guitar_factory, GuitarMusicElementFactory)
-        self.assertIsNot(piano_factory, guitar_factory)
-    
+        self.assertIsInstance(factory1, SynthMusicElementFactory)
+
     def test_get_audio_generator_caching(self):
         """Test that audio generators are cached."""
         manager = AudioManager()
-        
-        gen1 = manager.get_audio_generator('piano')
-        gen2 = manager.get_audio_generator('piano')
-        
-        # Should return same instance (cached)
+        gen1 = manager.get_audio_generator('synth')
+        gen2 = manager.get_audio_generator('synth')
         self.assertIs(gen1, gen2)
-    
+
     def test_get_audio_generator_different_instruments(self):
-        """Test getting generators for different instruments."""
+        """Test getting generators for different instrument variants (synth vs synth_saw)."""
         manager = AudioManager()
-        
-        piano_gen = manager.get_audio_generator('piano')
-        guitar_gen = manager.get_audio_generator('guitar')
-        
-        self.assertEqual(piano_gen.get_instrument_name(), 'piano')
-        self.assertEqual(guitar_gen.get_instrument_name(), 'guitar')
-        self.assertIsNot(piano_gen, guitar_gen)
-    
+        synth_gen = manager.get_audio_generator('synth')
+        synth_saw_gen = manager.get_audio_generator('synth_saw')
+        self.assertIn('synth', synth_gen.get_instrument_name())
+        self.assertIn('saw', synth_saw_gen.get_instrument_name())
+        self.assertIsNot(synth_gen, synth_saw_gen)
+
     def test_clear_cache(self):
         """Test clearing cache."""
         manager = AudioManager()
-        
-        # Create and cache factories
-        factory1 = manager.get_music_element_factory('piano')
-        gen1 = manager.get_audio_generator('piano')
-        
-        # Clear cache
+        factory1 = manager.get_music_element_factory('synth')
+        gen1 = manager.get_audio_generator('synth')
         manager.clear_cache()
-        
-        # New requests should create new instances
-        factory2 = manager.get_music_element_factory('piano')
-        gen2 = manager.get_audio_generator('piano')
-        
-        # Should be different instances
+        factory2 = manager.get_music_element_factory('synth')
+        gen2 = manager.get_audio_generator('synth')
         self.assertIsNot(factory1, factory2)
         self.assertIsNot(gen1, gen2)
     

@@ -56,16 +56,6 @@ class TestFFTStrategy(unittest.TestCase):
         
         self.assertEqual(strategy.get_name(), "FFT-based")
     
-    def test_get_feature_count(self):
-        """Verify feature count is positive."""
-        from core.recognition.strategies import FFTStrategy
-        
-        strategy = FFTStrategy()
-        count = strategy.get_feature_count()
-        
-        self.assertGreater(count, 0)
-        self.assertIsInstance(count, int)
-    
     def test_extract_features_returns_array(self):
         """Verify extract_features returns numpy array."""
         from core.recognition.strategies import FFTStrategy
@@ -253,8 +243,8 @@ class TestStrategyWithFacade(unittest.TestCase):
         from core.ml.model_manager import ModelManager
         ModelManager.reset_instance()
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
     def test_facade_default_strategy(self, mock_extractor, mock_classifier):
         """Verify Facade uses FFTStrategy by default."""
         mock_classifier.return_value.is_loaded = True
@@ -266,8 +256,8 @@ class TestStrategyWithFacade(unittest.TestCase):
         self.assertIsInstance(facade.strategy, FFTStrategy)
         self.assertEqual(facade.strategy_name, "FFT-based")
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
     def test_facade_custom_strategy(self, mock_extractor, mock_classifier):
         """Verify Facade accepts custom strategy."""
         mock_classifier.return_value.is_loaded = True
@@ -279,8 +269,8 @@ class TestStrategyWithFacade(unittest.TestCase):
         self.assertIsInstance(facade.strategy, MFCCStrategy)
         self.assertEqual(facade.strategy_name, "MFCC-based")
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
     def test_facade_set_strategy(self, mock_extractor, mock_classifier):
         """Verify strategy can be changed dynamically."""
         mock_classifier.return_value.is_loaded = True
@@ -296,8 +286,8 @@ class TestStrategyWithFacade(unittest.TestCase):
         facade.set_strategy(FFTStrategy())
         self.assertEqual(facade.strategy_name, "FFT-based")
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
     def test_facade_set_invalid_strategy(self, mock_extractor, mock_classifier):
         """Verify error on invalid strategy."""
         mock_classifier.return_value.is_loaded = True
@@ -312,8 +302,8 @@ class TestStrategyWithFacade(unittest.TestCase):
         with self.assertRaises(TypeError):
             facade.set_strategy(None)
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
     @patch('core.recognition.facade.librosa')
     def test_facade_compare_strategies(self, mock_librosa, mock_extractor, mock_classifier):
         """Verify compare_strategies method."""

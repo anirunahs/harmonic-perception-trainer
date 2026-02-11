@@ -62,7 +62,7 @@ const GeneratedIntervals = ({
       {currentPlaying && (
         <div className="global-controls">
           <button
-            className="btn btn--danger btn--sm"
+            className="btn btn--stop-playback btn--sm"
             onClick={onStopAudio}
           >
             <Square />

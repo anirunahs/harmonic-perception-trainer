@@ -12,20 +12,17 @@ from .constants import (
     get_frequency_with_semitone_offset,
     get_target_note,
 )
-from .generators import AudioGenerator, PianoGenerator, GuitarGenerator, SynthGenerator
+from .generators import AudioGenerator, SynthGenerator
 from .factory import InstrumentFactory, get_factory
 from .music_elements import (
     IntervalGenerator,
     ChordGenerator,
-    PianoIntervalGenerator,
-    PianoChordGenerator,
-    GuitarIntervalGenerator,
-    GuitarChordGenerator,
+    SynthIntervalGenerator,
+    SynthChordGenerator,
 )
 from .abstract_factory import (
     MusicElementFactory,
-    PianoMusicElementFactory,
-    GuitarMusicElementFactory,
+    SynthMusicElementFactory,
     MusicElementFactoryRegistry,
 )
 from .audio_manager import AudioManager, get_audio_manager
@@ -51,8 +48,6 @@ __all__ = [
     'get_target_note',
     # Generators
     'AudioGenerator',
-    'PianoGenerator',
-    'GuitarGenerator',
     'SynthGenerator',
     # Factory Method
     'InstrumentFactory',
@@ -60,13 +55,10 @@ __all__ = [
     # Abstract Factory - Music Elements
     'IntervalGenerator',
     'ChordGenerator',
-    'PianoIntervalGenerator',
-    'PianoChordGenerator',
-    'GuitarIntervalGenerator',
-    'GuitarChordGenerator',
+    'SynthIntervalGenerator',
+    'SynthChordGenerator',
     'MusicElementFactory',
-    'PianoMusicElementFactory',
-    'GuitarMusicElementFactory',
+    'SynthMusicElementFactory',
     'MusicElementFactoryRegistry',
     # Singleton - Audio Manager
     'AudioManager',

@@ -7,7 +7,7 @@ dynamically.
 """
 
 from typing import Dict, Type, Optional, Any
-from .generators import AudioGenerator, PianoGenerator, GuitarGenerator, SynthGenerator
+from .generators import AudioGenerator, SynthGenerator
 from .constants import DEFAULT_SAMPLE_RATE, ADSREnvelope
 
 
@@ -20,17 +20,12 @@ class InstrumentFactory:
     
     Usage:
         factory = InstrumentFactory()
-        piano = factory.create_generator('piano')
-        guitar = factory.create_generator('guitar')
-        
-        # Generate audio
-        tone = piano.generate_tone(440.0, duration=2.0)
+        synth = factory.create_generator('synth')
+        tone = synth.generate_tone(440.0, duration=2.0)
     """
     
-    # Registry of available generator classes
+    # Registry of available generator classes (synth only; piano/guitar use client-side samples)
     _generators: Dict[str, Type[AudioGenerator]] = {
-        'piano': PianoGenerator,
-        'guitar': GuitarGenerator,
         'synth': SynthGenerator,
         'synth_saw': SynthGenerator,
         'synth_square': SynthGenerator,
@@ -113,7 +108,7 @@ class InstrumentFactory:
         concrete generator based on the instrument name.
         
         Args:
-            instrument: Name of the instrument ('piano', 'guitar', 'synth', etc.)
+            instrument: Name of the instrument ('synth', 'synth_saw', etc.)
             adsr: Optional custom ADSR envelope
             **kwargs: Additional instrument-specific parameters
         
@@ -125,8 +120,6 @@ class InstrumentFactory:
         
         Examples:
             >>> factory = InstrumentFactory()
-            >>> piano = factory.create_generator('piano')
-            >>> guitar = factory.create_generator('guitar', pluck_position=0.3)
             >>> synth = factory.create_generator('synth', wave_type='square')
         """
         instrument = instrument.lower()
@@ -153,34 +146,6 @@ class InstrumentFactory:
         params.update(kwargs)
         
         return generator_class(**params)
-    
-    def create_piano(self, adsr: Optional[ADSREnvelope] = None) -> PianoGenerator:
-        """
-        Create a piano generator.
-        
-        Convenience method for creating piano generators.
-        
-        Args:
-            adsr: Optional custom ADSR envelope
-        
-        Returns:
-            PianoGenerator instance
-        """
-        return self.create_generator('piano', adsr=adsr)
-    
-    def create_guitar(self, pluck_position: float = 0.2,
-                      adsr: Optional[ADSREnvelope] = None) -> GuitarGenerator:
-        """
-        Create a guitar generator.
-        
-        Args:
-            pluck_position: Position of pluck (0.0 to 0.5)
-            adsr: Optional custom ADSR envelope
-        
-        Returns:
-            GuitarGenerator instance
-        """
-        return self.create_generator('guitar', adsr=adsr, pluck_position=pluck_position)
     
     def create_synth(self, wave_type: str = 'saw',
                      adsr: Optional[ADSREnvelope] = None) -> SynthGenerator:

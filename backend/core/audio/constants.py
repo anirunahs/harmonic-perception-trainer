@@ -98,8 +98,6 @@ class ADSREnvelope:
 class InstrumentEnvelopes:
     """Predefined ADSR envelopes for various instruments."""
     
-    PIANO = ADSREnvelope(attack=0.01, decay=0.3, sustain=0.4, release=0.8)
-    GUITAR = ADSREnvelope(attack=0.005, decay=0.1, sustain=0.3, release=1.0)
     SYNTH_PAD = ADSREnvelope(attack=0.3, decay=0.2, sustain=0.8, release=1.0)
     SYNTH_LEAD = ADSREnvelope(attack=0.01, decay=0.1, sustain=0.7, release=0.3)
     ORGAN = ADSREnvelope(attack=0.02, decay=0.0, sustain=1.0, release=0.1)
@@ -109,25 +107,6 @@ class InstrumentEnvelopes:
 # These define the timbre of each instrument
 class InstrumentHarmonics:
     """Harmonic content definitions for various instruments."""
-    
-    # Piano: strong fundamental, decreasing upper harmonics
-    PIANO: List[Tuple[int, float]] = [
-        (1, 1.0),    # Fundamental
-        (2, 0.5),    # 2nd harmonic
-        (3, 0.25),   # 3rd harmonic
-        (4, 0.125),  # 4th harmonic
-        (5, 0.0625), # 5th harmonic
-    ]
-    
-    # Guitar: more complex harmonic content
-    GUITAR: List[Tuple[int, float]] = [
-        (1, 1.0),
-        (2, 0.4),
-        (3, 0.3),
-        (4, 0.2),
-        (5, 0.15),
-        (6, 0.1),
-    ]
     
     # Synth: can vary, this is a saw-like wave
     SYNTH_SAW: List[Tuple[int, float]] = [

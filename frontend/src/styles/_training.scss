@@ -447,8 +447,8 @@
   }
 
   &--playing {
-    border-color: $primary-color;
-    box-shadow: 0 0 0 3px rgba($primary-color, 0.1);
+    border-color: $playback-color;
+    box-shadow: 0 0 0 3px rgba($playback-color, 0.15);
   }
 
   &__header {
@@ -588,14 +588,14 @@
   }
 
   &--playing {
-    background: $error-color;
-    border-color: $error-color;
+    background: $playback-color;
+    border-color: $playback-color;
     color: $white;
     animation: playingPulse 1.5s ease-in-out infinite;
 
     &:hover:not(:disabled) {
-      background: $error-color;
-      border-color: $error-color;
+      background: #0284c7;
+      border-color: #0284c7;
     }
   }
 
@@ -616,10 +616,10 @@
 
 @keyframes playingPulse {
   0%, 100% {
-    box-shadow: 0 0 0 0 rgba($error-color, 0.7);
+    box-shadow: 0 0 0 0 rgba($playback-color, 0.5);
   }
   50% {
-    box-shadow: 0 0 0 10px rgba($error-color, 0);
+    box-shadow: 0 0 0 10px rgba($playback-color, 0);
   }
 }
 
@@ -628,9 +628,9 @@
   align-items: center;
   gap: $space-2;
   padding: $space-2;
-  background: rgba($success-color, 0.1);
+  background: rgba($playback-color, 0.1);
   border-radius: $radius;
-  color: $success-color;
+  color: $playback-color;
   font-size: $font-size-sm;
 
   &__bars {
