@@ -249,19 +249,19 @@
   }
 
   &--recording {
-    background: linear-gradient(135deg, $error-color, #dc2626);
+    background: linear-gradient(135deg, $error-color, $error-hover);
     animation: recordingPulse 2s ease-in-out infinite;
 
     &:hover:not(:disabled) {
-      background: linear-gradient(135deg, #dc2626, #b91c1c);
+      background: linear-gradient(135deg, $error-hover, $error-active);
     }
   }
 
   &--completed {
-    background: linear-gradient(135deg, $success-color, #059669);
+    background: linear-gradient(135deg, $success-color, $success-hover);
 
     &:hover:not(:disabled) {
-      background: linear-gradient(135deg, #059669, #047857);
+      background: linear-gradient(135deg, $success-hover, $success-active);
     }
   }
 }
@@ -345,7 +345,7 @@
     box-shadow: $shadow;
 
     &:hover:not(:disabled) {
-      background: linear-gradient(135deg, #f59e0b, #d97706);
+      background: linear-gradient(135deg, $warning-color, $warning-hover);
       transform: translateY(-1px);
       box-shadow: $shadow-md;
     }
