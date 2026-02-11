@@ -118,12 +118,12 @@ SPECTROGRAM_GRID_INTERVALS = [
 
 def _render_spectrogram_grid(duration: float = 1.5, sr: int = DEFAULT_SAMPLE_RATE, max_freq_hz: float = 2000.0):
     """
-    Малює сітку 4×3 спектрограм для 12 інтервалів. Повертає PNG bytes.
+    Малює сітку 3×4 (3 рядки, 4 стовпці) спектрограм для 12 інтервалів. Повертає PNG bytes.
     Велике FFT-вікно (4096) — чіткі горизонтальні лінії обертонів; обмежений діапазон дБ — кращий контраст.
     """
-    n_per_row = 3
-    n_rows = 4
-    fig, axes = plt.subplots(n_rows, n_per_row, figsize=(10, 10), sharex=True, sharey=True)
+    n_per_row = 4
+    n_rows = 3
+    fig, axes = plt.subplots(n_rows, n_per_row, figsize=(14, 8), sharex=True, sharey=True)
     axes = axes.flatten()
     nperseg = 4096
     noverlap = nperseg // 2
