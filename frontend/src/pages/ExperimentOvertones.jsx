@@ -287,7 +287,7 @@ function ExperimentOvertones() {
           )}
 
           <div className="overtone-spectrograms">
-            <h3>Спектрограми 12 інтервалів (4×3)</h3>
+            <h3>Спектрограми 12 інтервалів (3×4)</h3>
             <div className="overtone-spectrograms__actions">
               <button
                 type="button"
