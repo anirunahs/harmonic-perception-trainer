@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Mic, Ear, BookOpenCheck, ArrowRight, Music, Star, Target, Brain, Play, Users, Award } from "lucide-react";
+import { Mic, Ear, BookOpenCheck, ArrowRight, Music, Star, Target, Brain, Play, Award } from "lucide-react";
 import Header from "../components/Header";
 
 function Home() {
@@ -55,9 +55,9 @@ function Home() {
   ];
 
   const stats = [
-    { label: "Типів інтервалів", value: "12", icon: Music },
-    { label: "Точність розпізнавання", value: "92%", icon: Target },
-    { label: "Активних користувачів", value: "50+", icon: Users }
+    { label: "Розпізнавання інтервалів по аудіо", value: "AI-аналіз", icon: Mic },
+    { label: "Тренування слуху на інтервалах та акордах", value: "2 інструменти", icon: Music },
+    { label: "Тестування слуху та голосове повторення", value: "2 режими", icon: BookOpenCheck }
   ];
 
   const getColorClasses = (color) => {
@@ -146,10 +146,6 @@ function Home() {
                   <div className="module-card__header">
                     <div className={`module-card__icon ${getIconColorClasses(module.color)}`}>
                       <IconComponent />
-                    </div>
-                    <div className="module-card__status">
-                      <div className="status-indicator status-indicator--ready"></div>
-                      <span>Готово до використання</span>
                     </div>
                   </div>
 
