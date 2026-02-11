@@ -451,15 +451,15 @@
   height: 1.25rem;
 
   &--gold {
-    color: #fbbf24;
+    color: $warning-color;
   }
 
   &--silver {
-    color: #9ca3af;
+    color: $gray-400;
   }
 
   &--bronze {
-    color: #d97706;
+    color: $warning-hover;
   }
 }
 
