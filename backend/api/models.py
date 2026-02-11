@@ -3,10 +3,18 @@ from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator, MaxValueValidator
 
 class UserProfile(models.Model):
+    ROLE_USER = 'user'
+    ROLE_EXPERIMENTER = 'experimenter'
+    ROLE_CHOICES = [
+        (ROLE_USER, 'User'),
+        (ROLE_EXPERIMENTER, 'Experimenter'),
+    ]
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=ROLE_USER)
     experience_points = models.IntegerField(default=0)
     level = models.IntegerField(default=1)
-    
+
     vocal_range_min_frequency = models.FloatField(null=True, blank=True)
     vocal_range_max_frequency = models.FloatField(null=True, blank=True)
     vocal_range_min_note = models.CharField(max_length=10, null=True, blank=True)
