@@ -125,8 +125,8 @@ class TestAudioProcessingFacade(unittest.TestCase):
         from core.ml.model_manager import ModelManager
         ModelManager.reset_instance()
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
     def test_is_ready_property(self, mock_extractor, mock_classifier):
         """Verify is_ready reflects model state."""
         mock_classifier.return_value.is_loaded = True
@@ -137,9 +137,10 @@ class TestAudioProcessingFacade(unittest.TestCase):
         
         self.assertTrue(facade.is_ready)
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
-    def test_recognize_when_model_not_ready(self, mock_extractor, mock_classifier):
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
+    @patch('core.ml.model_manager.logger')
+    def test_recognize_when_model_not_ready(self, mock_logger, mock_extractor, mock_classifier):
         """Verify error when model not loaded."""
         mock_classifier.return_value.is_loaded = False
         
@@ -151,8 +152,8 @@ class TestAudioProcessingFacade(unittest.TestCase):
         self.assertFalse(result.success)
         self.assertEqual(result.error_code, 'model_unavailable')
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
     @patch('core.recognition.facade.librosa')
     def test_recognize_interval_success(self, mock_librosa, mock_extractor, mock_classifier):
         """Verify successful recognition."""
@@ -182,9 +183,10 @@ class TestAudioProcessingFacade(unittest.TestCase):
         self.assertTrue(result.success)
         self.assertEqual(result.best_prediction.interval, 'perfect_5th')
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
-    def test_recognize_invalid_base64(self, mock_extractor, mock_classifier):
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
+    @patch('core.recognition.facade.logger')
+    def test_recognize_invalid_base64(self, mock_logger, mock_extractor, mock_classifier):
         """Verify error on invalid base64."""
         mock_classifier.return_value.is_loaded = True
         
@@ -196,8 +198,8 @@ class TestAudioProcessingFacade(unittest.TestCase):
         self.assertFalse(result.success)
         self.assertEqual(result.error_code, 'decode_error')
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
     @patch('core.recognition.facade.librosa')
     def test_recognize_empty_audio(self, mock_librosa, mock_extractor, mock_classifier):
         """Verify error on empty audio."""
@@ -225,8 +227,8 @@ class TestAudioPreprocessing(unittest.TestCase):
         from core.ml.model_manager import ModelManager
         ModelManager.reset_instance()
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
     def test_preprocess_normalizes_audio(self, mock_extractor, mock_classifier):
         """Verify audio is normalized."""
         mock_classifier.return_value.is_loaded = True
@@ -245,8 +247,8 @@ class TestAudioPreprocessing(unittest.TestCase):
         # Check amplitude normalized
         self.assertLessEqual(np.max(np.abs(processed)), 1.0)
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
     def test_extract_best_segment_pads_short_audio(self, mock_extractor, mock_classifier):
         """Verify short audio is padded."""
         mock_classifier.return_value.is_loaded = True
@@ -263,8 +265,8 @@ class TestAudioPreprocessing(unittest.TestCase):
         expected_length = int(2.0 * 22050)
         self.assertEqual(len(result), expected_length)
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
     def test_extract_best_segment_finds_energy(self, mock_extractor, mock_classifier):
         """Verify best segment is extracted based on energy."""
         mock_classifier.return_value.is_loaded = True
@@ -298,8 +300,8 @@ class TestAudioQualityAnalysis(unittest.TestCase):
         from core.ml.model_manager import ModelManager
         ModelManager.reset_instance()
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
     @patch('core.recognition.facade.librosa')
     def test_analyze_good_quality(self, mock_librosa, mock_extractor, mock_classifier):
         """Verify good quality detection."""
@@ -317,8 +319,8 @@ class TestAudioQualityAnalysis(unittest.TestCase):
         self.assertEqual(result['quality'], 'good')
         self.assertGreater(result['quality_score'], 0.8)
     
-    @patch('core.ml.model_manager.IntervalClassifier')
-    @patch('core.ml.model_manager.FFTFeatureExtractor')
+    @patch('core.model_inference.IntervalClassifier')
+    @patch('core.feature_extraction.FFTFeatureExtractor')
     @patch('core.recognition.facade.librosa')
     def test_analyze_poor_quality(self, mock_librosa, mock_extractor, mock_classifier):
         """Verify poor quality detection."""

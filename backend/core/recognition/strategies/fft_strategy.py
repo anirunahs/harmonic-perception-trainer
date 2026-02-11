@@ -57,6 +57,9 @@ class FFTStrategy(FeatureExtractionStrategy):
         max_idx = np.argmax(freqs >= self.MAX_FREQ)
         if max_idx == 0:
             max_idx = len(freqs)
+        # Ensure max_idx >= min_idx
+        if max_idx < min_idx:
+            max_idx = len(freqs)
         return min_idx, max_idx
     
     def extract_features(self, audio: np.ndarray, sample_rate: int) -> np.ndarray:
@@ -97,7 +100,7 @@ class FFTStrategy(FeatureExtractionStrategy):
     def get_feature_count(self) -> int:
         """Get expected feature count."""
         min_idx, max_idx = self._freq_range
-        fft_features = max_idx - min_idx
+        fft_features = max(max_idx - min_idx, 0)  # Ensure non-negative
         additional_features = 20
         return fft_features + additional_features
     
