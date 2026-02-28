@@ -11,6 +11,9 @@ __pycache__/
 .vscode/
 .idea/
 
+# ZTU пуш
+/ztu/
+
 # БД
 *.sqlite3
 
