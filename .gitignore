@@ -27,6 +27,8 @@ dataset-preparation/processed-segments/
 dataset-preparation/spectrograms/
 dataset-preparation/fft-dataset/
 dataset-preparation/quality_reports/
+dataset-preparation/synthetic-dataset/
+dataset-preparation/.sample-cache/
 backend/core/*.json
 backend/core/*.txt
 
