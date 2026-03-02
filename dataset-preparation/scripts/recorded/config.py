@@ -56,6 +56,7 @@ FILENAME_TO_INTERVAL = {
     'maj3':  'major_3rd',
     'perf4': 'perfect_4th',
     'trit':  'tritone',
+    'tritone': 'tritone',
     'perf5': 'perfect_5th',
     'min6':  'minor_6th',
     'maj6':  'major_6th',
