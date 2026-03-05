@@ -133,13 +133,7 @@ def aggregate_seeds(
 
 
 def error_gap_analysis(agg: Dict[str, Dict]) -> Dict[str, float]:
-    """Compute bias / variance / mismatch gaps from aggregated metrics.
-
-    train_error       – measures bias (underfitting)
-    train-dev − train – measures variance (overfitting to training data)
-    val − train-dev   – measures data mismatch (cross-timbral generalisation)
-    test − val        – measures over-tuning to validation set
-    """
+    """Compute bias / variance / mismatch gaps from aggregated metrics."""
     te = 1.0 - agg["train"]["accuracy"]["mean"]
     tde = 1.0 - agg["train_dev"]["accuracy"]["mean"]
     ve = 1.0 - agg["val"]["accuracy"]["mean"]
@@ -232,7 +226,7 @@ def format_results(
             buf.write(f"    {k:<20s}: {v}\n")
 
     # Main results table
-    buf.write(_h1("4. MAIN RESULTS (mean ± std over seeds)"))
+    buf.write(_h1("4. MAIN RESULTS"))
     header = (f"  {'Repr':<8s} {'Accuracy':>16s} {'Macro-F1':>16s} "
               f"{'Weighted-F1':>16s} {'Cohen κ':>16s}")
     buf.write(header + "\n")
@@ -248,7 +242,7 @@ def format_results(
 
     # Error-gap analysis
     buf.write(_h1("5. ERROR-GAP ANALYSIS (bias / variance / mismatch)"))
-    buf.write("  Framework: Andrew Ng — train vs train-dev vs dev vs test\n\n")
+    buf.write(" Train vs train-dev vs dev vs test\n\n")
     header_g = (f"  {'Repr':<8s} {'Train err':>10s} {'T-Dev err':>10s} "
                 f"{'Val err':>10s} {'Test err':>10s} │ "
                 f"{'Var gap':>8s} {'Mis gap':>8s} {'OT gap':>8s}")
@@ -274,7 +268,6 @@ def format_results(
         "(high → over-tuned to validation set)\n"
     )
 
-    # Per-class results for each representation (test split)
     buf.write(_h1("6. PER-CLASS RESULTS ON TEST SET"))
     for rn, agg in all_repr_results.items():
         buf.write(_h2(f"{rn.upper()} — per-class (test)"))
@@ -290,14 +283,12 @@ def format_results(
                 f"{pc['f1']['mean']:7.3f}±{pc['f1']['std']:.3f}\n"
             )
 
-    # Confusion matrices (test, averaged over seeds)
     buf.write(_h1("7. CONFUSION MATRICES (test, averaged over seeds)"))
     for rn, agg in all_repr_results.items():
         buf.write(_h2(f"{rn.upper()} — test confusion matrix"))
         buf.write(format_confusion_matrix(
             agg["test"]["confusion_matrix_mean"], INTERVAL_CLASSES))
 
-    # Training curves summary
     buf.write(_h1("8. TRAINING SUMMARY"))
     for rn, histories in all_histories.items():
         epochs_list = [h.best_epoch for h in histories]
