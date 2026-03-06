@@ -16,6 +16,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATASET_DIR = PROJECT_ROOT / "dataset-preparation" / "synthetic-dataset"
 METADATA_CSV = DATASET_DIR / "metadata.csv"
 CACHE_DIR = Path(__file__).resolve().parent / ".cache"
+CHECKPOINT_DIR = CACHE_DIR / "checkpoints"
+BEST_HCQT_CHECKPOINT = CHECKPOINT_DIR / "best_hcqt.pt"
+BEST_MEL_CHECKPOINT = CHECKPOINT_DIR / "best_mel.pt"
+BEST_CQT_CHECKPOINT = CHECKPOINT_DIR / "best_cqt.pt"
 RESULTS_DIR = PROJECT_ROOT / "ztu" / "docs" / "experiments"
 
 # Audio
