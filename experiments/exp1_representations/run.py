@@ -20,8 +20,9 @@ import numpy as np
 import torch
 
 from .config import (
-    BATCH_SIZE, DEFAULT_REPRESENTATIONS, DROPOUT, LR, MAX_EPOCHS, PATIENCE,
-    T_MAX, WEIGHT_DECAY, METADATA_CSV, REPRESENTATIONS, RESULTS_DIR, SEEDS,
+    BATCH_SIZE, BEST_CQT_CHECKPOINT, BEST_HCQT_CHECKPOINT, BEST_MEL_CHECKPOINT,
+    DEFAULT_REPRESENTATIONS, DROPOUT, LR, MAX_EPOCHS, PATIENCE, T_MAX, WEIGHT_DECAY,
+    METADATA_CSV, REPRESENTATIONS, RESULTS_DIR, SEEDS,
 )
 from .dataset import create_dataloaders, prepare_splits
 from .evaluator import (
@@ -165,6 +166,13 @@ def run(args: argparse.Namespace) -> None:
 
         all_repr_results[repr_name] = aggregate_seeds(seed_metrics)
         all_histories[repr_name] = seed_histories
+
+        # Save checkpoints
+        if repr_name in ("hcqt", "mel", "cqt"):
+            path = { "hcqt": BEST_HCQT_CHECKPOINT, "mel": BEST_MEL_CHECKPOINT, "cqt": BEST_CQT_CHECKPOINT }[repr_name]
+            path.parent.mkdir(parents=True, exist_ok=True)
+            torch.save({"model_state_dict": model.state_dict()}, path)
+            log.info("Saved %s checkpoint to %s", repr_name.upper(), path)
 
     # Write results
     output_path = Path(args.output)
