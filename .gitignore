@@ -39,3 +39,7 @@ backend/core/*.txt
 *.pkl
 *_metadata.json
 *.png
+
+# Experiment run logs (root)
+exp2_*.log
+exp3_*.log
