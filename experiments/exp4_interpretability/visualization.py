@@ -11,6 +11,7 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.manifold import TSNE
 from sklearn.metrics import confusion_matrix
 
@@ -126,24 +127,64 @@ def plot_confusion_matrix(
     class_names = class_names or INTERVAL_CLASSES
     cm = confusion_matrix(y_true, y_pred, labels=range(len(class_names)))
     if normalize == "true":
-        cm = cm.astype(float) / (cm.sum(axis=1, keepdims=True) + 1e-8)
+        cm_display = (cm.astype(float) / (cm.sum(axis=1, keepdims=True) + 1e-8)) * 100.0
+        value_is_percent = True
+        fmt = ".0f"
+        vmin, vmax = 0.0, 100.0
     elif normalize == "pred":
-        cm = cm.astype(float) / (cm.sum(axis=0, keepdims=True) + 1e-8)
-    fig, ax = plt.subplots(1, 1, figsize=(10, 9))
-    im = ax.imshow(cm, aspect="auto", cmap="Blues", vmin=0, vmax=1.0 if normalize else None)
-    ax.set_xticks(range(len(class_names)))
-    ax.set_yticks(range(len(class_names)))
-    ax.set_xticklabels(class_names, rotation=45, ha="right")
-    ax.set_yticklabels(class_names)
-    for i in range(len(class_names)):
-        for j in range(len(class_names)):
-            v = cm[i, j]
-            ax.text(j, i, f"{v:.2f}" if normalize else str(int(v)), ha="center", va="center", fontsize=8)
-    ax.set_xlabel("Predicted")
-    ax.set_ylabel("True")
-    ax.set_title(title)
-    plt.colorbar(im, ax=ax)
+        cm_display = (cm.astype(float) / (cm.sum(axis=0, keepdims=True) + 1e-8)) * 100.0
+        value_is_percent = True
+        fmt = ".0f"
+        vmin, vmax = 0.0, 100.0
+    else:
+        cm_display = cm
+        value_is_percent = False
+        fmt = "d"
+        vmin, vmax = None, None
+
+    fig, ax = plt.subplots(1, 1, figsize=(13.0, 12.5), facecolor="white")
+    ax.set_facecolor("white")
+
+    sns.heatmap(
+        cm_display,
+        ax=ax,
+        cmap="Blues",
+        vmin=vmin,
+        vmax=vmax,
+        square=True,
+        annot=True,
+        fmt=fmt,
+        cbar=False,
+        linewidths=0.45,
+        linecolor="white",
+        xticklabels=class_names,
+        yticklabels=class_names,
+        annot_kws={"fontsize": 22, "fontweight": "normal"},
+    )
+
+    ax.set_title(title, fontsize=20, pad=10, color="black")
+    ax.set_xlabel("Predicted", fontsize=16, color="black")
+    ax.set_ylabel("True", fontsize=16, color="black")
+
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right", fontsize=13, color="black")
+    ax.set_yticklabels(ax.get_yticklabels(), rotation=0, ha="right", fontsize=13, color="black")
+
+    max_v = float(np.max(cm_display)) if np.size(cm_display) else 1.0
+    for t in ax.texts:
+        x, y = t.get_position()
+        i = int(y)
+        j = int(x)
+        if i < 0 or j < 0 or i >= cm_display.shape[0] or j >= cm_display.shape[1]:
+            continue
+        v = float(cm_display[i, j])
+        t.set_fontweight("normal")
+        if value_is_percent:
+            t.set_color("white" if v > 55 else "black")
+        else:
+            t.set_color("white" if v > (max_v * 0.55) else "black")
+
+    ax.set_aspect("equal")
     fig.tight_layout()
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out_path, dpi=150, bbox_inches="tight")
+    fig.savefig(out_path, dpi=300, bbox_inches="tight", facecolor="white")
     plt.close(fig)
